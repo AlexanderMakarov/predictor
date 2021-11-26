@@ -78,7 +78,7 @@ class Tokenizer {
      * @returns {'token': Map({'date': Date, 'y': number})}
      */
     getTokenHistories(period) {
-        console.log('getTokenHistories: for period=' + period + ' got data=' + data)
+        console.log('getTokenHistories: for period=' + period + ' got data=' + this.data)
         if (!this.data) {
             return null
         }
