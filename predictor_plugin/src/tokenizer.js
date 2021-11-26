@@ -82,4 +82,4 @@ const Tokenizer = new function() {
     }
 }
 
-Tokenizer.getTokenEqualHistories({}, Tokenizer.Period.DAILY)
+//Tokenizer.getTokenEqualHistories({}, Tokenizer.Period.DAILY)
