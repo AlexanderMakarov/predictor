@@ -7,11 +7,34 @@
         {
             "type": "pwa-node",
             "request": "launch",
-            "name": "Launch Program",
+            "name": "Launch tokenizer.js",
             "skipFiles": [
                 "<node_internals>/**"
             ],
             "program": "${workspaceFolder}/predictor_plugin/src/tokenizer.js"
+        },
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Flask",
+            "type": "python",
+            "request": "launch",
+            "stopOnEntry": false,
+            "pythonPath": "${config:python.pythonPath}",
+            "program": "${workspaceRoot}/predictor_service/src/run.py",
+            "args": [
+                "run"
+            ],
+            "cwd": "${workspaceRoot}/predictor_service/src/",
+            "envFile": "${workspaceFolder}/.env",
+            "debugOptions": [
+                "RedirectOutput"
+            ]
         }
     ]
 }
