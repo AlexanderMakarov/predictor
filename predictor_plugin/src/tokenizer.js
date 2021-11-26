@@ -92,7 +92,7 @@ class Tokenizer {
                 result.set(token, history)
             }
         })
-        console.log('getTokenHistories: end up with ' + result.size + ' tokens=' + Array.from(result.keys()))
+        console.log('getTokenHistories: ending up with ' + result.size + ' tokens=' + Array.from(result.keys()))
         return result
     }
 
