@@ -1,0 +1,43 @@
+<div class="demo" >
+    <style type="text/css"> .demo { margin: 30px ; color : #AAA ; font-family : arial sans-serif ;font-size : 10pt }
+    p { color : red ; font-size : 11pt }
+    </style>
+    <link rel="stylesheet" href="//ajax.googleapis.com/ajax/libs/jqueryui/1.9.1/themes/cupertino/jquery-ui.css">
+
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.9.1/jquery-ui.min.js"></script>
+
+    <!--<p>Please select a date below :</p>-->
+
+    <p> <input size="18px" type="text" name="StartDate" id="startdatepicker" /> </p>
+    <script>
+        $( "#startdatepicker" ).datepicker({
+            showWeek: true,
+            firstDay: 0,
+        });
+    </script>
+    <input type="button" value="Save" onclick="submitDate()" />
+</div>
+
+
+<script>
+    // Pass input dates to server-side submitDates()
+    function submitDate() {
+        var startDate = $("#startdatepicker").val();
+
+        google.script.run
+            .withSuccessHandler(
+                // Dates delivered, close dialog
+                function() {
+                    google.script.host.close();
+                })
+            // Display failure messages
+            .withFailureHandler(
+                function() {
+                    var div = $('<div id="error" class="error">' + msg + '</div>');
+                    $(element).after($("#demo"));
+                })
+            .saveHistory(startDate);
+    }
+
+</script>
