@@ -1,5 +1,5 @@
 // Predicts data locally or with back-end. Calls nobody except back-end.
-/*export */const Predict = new function() {
+export const Predict = new function() {
 
     /** Round predicted value to this thing. Like 0.1 to use only tens fractions. */
     this.quant = 0.25;
@@ -31,18 +31,28 @@
     }
 
     function predictDay(historiesPerToken, dateToPredict, notEmptyHistoryDays) {
-        // local case
         let result = new Map();
-        historiesPerToken.forEach((history, token) => {
-            let prediction = predictToken(history, dateToPredict, notEmptyHistoryDays)
-            if (prediction && prediction > 0) {
-                result.set(token, prediction)
-            }
-        })
+        const isLocal = true;
+        if (isLocal) {
+            // local case
+            historiesPerToken.forEach((history, token) => {
+                history = fillGaps(history, notEmptyHistoryDays)
+                let prediction = predictToken(history, dateToPredict)
+                if (prediction && prediction > 0) {
+                    result.set(token, prediction)
+                }
+            })
+        } else {
+            historiesPerToken.forEach((history, token) => {
+                fillGaps(history, notEmptyHistoryDays)
+            })
+            // TODO result = callBackend(historiesPerToken, dateToPredict)
+        }
+
         return result
     };
 
-    function predictToken(data, dateToPredict, notEmptyHistoryDays) {
+    function fillGaps(data, notEmptyHistoryDays) {
         // If data for single row then this row is last. To make Prophet predict it next day and with the same 'y' need make
         // line, i.e. add the same 'y' to previous day ONLY.
         if (data.length == 1) {
@@ -55,16 +65,16 @@
             let daysToFill = notEmptyHistoryDays.filter(d => d > firstDay).filter(d => !existingDays.includes(d))
             data.push(...daysToFill.map(d => new Map([['date', d], ['y', 0]])))
         }
-        return predict(data, dateToPredict)
-    };
+        return data;
+    }
 
     /**
-     * Predicts time series.
+     * Predicts time series locally.
      * @param {*} data [Map([['date', Date], ['y', number]]), ...]
-     * @param {Date} dateToPredict
+     * @param {Date} dateToPredict Not needed in current realization.
      * @returns 
      */
-    function predict(data, dateToPredict) {
+    function predictToken(data, dateToPredict) {
         const len = data.length
         if (len == 1) {
             return x[0].get('y')  // just repeat.
