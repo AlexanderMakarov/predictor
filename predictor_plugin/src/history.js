@@ -1,99 +1,108 @@
 // Handles history. Saves in separate sheet, extracts data to predict.
 const History =  new function() {
-    this.sheetName = 'PredictorHistoryTest'
-}
+    this.sheetName = 'PredictorHistory'
+    this.dateCol = 'date'
 
+    this.saveHistory = function(date) {
+        let dateToSave = null;
+        if (date == null || date == undefined) {
+            dateToSave = new Date(new Date().toDateString());
+        } else {
+            dateToSave = date;
+        }
+        let currentSheet  = SpreadsheetApp.getActiveSheet();
+        let numRows = currentSheet.getDataRange().getNumRows();
+        let numColumns = currentSheet.getDataRange().getNumColumns();
+        values = getPairColumnsValues(currentSheet, 1, numRows, numColumns);
 
-function saveHistory(date) {
-    let dateToSave = null;
-    if (date == null || date == undefined) {
-        dateToSave = new Date();
-    } else {
-        dateToSave = date;
+        let historySheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(History.sheetName);
+        values.forEach(value => {
+            value.push(dateToSave);
+            historySheet.appendRow(value);
+        });
     }
-    let currentSheet  = SpreadsheetApp.getActiveSheet();
-    let numRows = currentSheet.getDataRange().getNumRows();
-    let numColumns = currentSheet.getDataRange().getNumColumns();
-    values = getPairColumnsValues(currentSheet, 1, numRows, numColumns);
 
-    let historySheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(History.sheetName);
-    values.forEach(value => {
-        value.push(dateToSave);
-        historySheet.appendRow(value);
-    });
-}
+    this.sendHistoryAndGetPredicted = function() {
+        let [data, headers] = getHistory(); // Headers required to put prediction columns in right order.
+        let response = mockedResponseFromMLService(data, headers);
+        let currentSheet = SpreadsheetApp.getActiveSheet();
+        currentSheet.clear();
+        response.forEach(row => {
+            let values = [];
+            for (let key of headers) {
+                if (key != this.dateCol && row.has(key)) {
+                    values.push(row.get(key));
+                }
+            }
+            currentSheet.appendRow(values);
+        });
+    }
 
-function sendHistoryAndGetPredicted() {
-    let [data, headers] = getHistory(); // Headers required to put prediction columns in right order.
-    let response = mockedResponseFromMLService(data);
-    let currentSheet = SpreadsheetApp.getActiveSheet();
-    currentSheet.clear();
-    response.forEach(row => {
-        let values = [];
-        for (let key of headers) {
-            if (key != 'date' && row.has(key)) {
-                values.push(row.get(key));
+    this.fillHistory = function() {
+        let historySheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(History.sheetName);
+        if (historySheet == null || historySheet == undefined) {
+            let allSheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
+            let nameToIgnore = SpreadsheetApp.getActiveSheet().getName();
+            let filteredSheets = allSheets.filter(sheet => isValidSheetForInitialLoad(sheet.getName(), nameToIgnore));
+            let newSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet();
+            newSheet.setName(History.sheetName);
+    
+            if (filteredSheets.length > 0) {
+    
+                let initialNumColumns = filteredSheets[0].getDataRange().getNumColumns();
+                let headers = getHeaders(getPairColumnsValues(filteredSheets[0], 1, 1, initialNumColumns))
+                        .filter(header => header != this.dateCol);
+                headers.push(this.dateCol);
+                newSheet.appendRow(headers);
+                filteredSheets.forEach(sheet => {
+                    let date = getParsableDate(sheet.getName());
+                    let numRows = sheet.getDataRange().getNumRows();
+                    let numColumns = sheet.getDataRange().getNumColumns();
+                    let values = getPairColumnsValues(sheet, 1, numRows, numColumns);
+    
+                    if (isHeadersExists(values)) {
+                        values.shift();
+                    }
+    
+                    values.forEach(value => {
+                        value.push(date);
+                        newSheet.appendRow(value);
+                    })
+                });
             }
         }
-        currentSheet.appendRow(values);
-    });
-}
-
-function getHistory() {
-    let isEts = false;
-    let ss = SpreadsheetApp.getActiveSpreadsheet();
-    let sheet = isEts ? ss.getSheetByName("etsHistory") : ss.getSheetByName(History.sheetName);
-    let numRows = sheet.getDataRange().getNumRows();
-    let numColumns = sheet.getDataRange().getNumColumns();
-    Logger.log("numRows: " + numRows)
-    Logger.log("numColumns: " + numColumns)
-    Logger.log("==========")
-    let historyDtosForMl = [];
-
-    let values = getPairColumnsValues(sheet, 1, numRows, numColumns);
-    let headers = getHeaders(values);
-    historyDtosForMl = historyDtosForMl.concat(getMlDtos(values, headers));
-    Logger.log(getPairColumnsValues(sheet, 1, numRows, numColumns));
-    Logger.log(historyDtosForMl);
-    Logger.log("==========")
-
-    return [historyDtosForMl, headers]
-}
-
-function fillHistory() {
-    let historySheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(History.sheetName);
-    if (historySheet == null || historySheet == undefined) {
-        let allSheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
-        let nameToIgnore = SpreadsheetApp.getActiveSheet().getName();
-        let filteredSheets = allSheets.filter(sheet => isValidSheetForInitialLoad(sheet.getName(), nameToIgnore));
-        let newSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet();
-        newSheet.setName(History.sheetName);
-
-        if (filteredSheets.length > 0) {
-
-            let initialNumColumns = filteredSheets[0].getDataRange().getNumColumns();
-            let headers = getHeaders(getPairColumnsValues(filteredSheets[0], 1, 1, initialNumColumns)).filter(header => header != "date");
-            headers.push("date");
-            newSheet.appendRow(headers);
-            filteredSheets.forEach(sheet => {
-                let date = getParsableDate(sheet.getName());
-                let numRows = sheet.getDataRange().getNumRows();
-                let numColumns = sheet.getDataRange().getNumColumns();
-                let values = getPairColumnsValues(sheet, 1, numRows, numColumns);
-
-                if (isHeadersExists(values)) {
-                    values.shift();
-                }
-
-                values.forEach(value => {
-                    value.push(date);
-                    newSheet.appendRow(value);
-                })
-
-            });
-
-        }
-
     }
 
+    function mockedResponseFromMLService(data, headers) {
+        const startTime = new Date();
+        let keys = Object.keys(data[0]); // They are the same in all rows.
+        data = data.map(row => {
+            let result = new Map();
+            for (const key of keys) {
+                result.set(key, row[key]);
+            }
+            return result
+        });
+        let tokenizer = new Tokenizer(data, headers);
+        let historiesPerToken = tokenizer.getTokenHistories(Period.WEEKLY)
+        console.log(historiesPerToken)
+        let result = Predict.predict(historiesPerToken, tokenizer, new Date())
+        console.log("Prediction: in " + Math.round(new Date() - startTime) + " ms got " + result)
+        return result;
+    }
+
+    function getHistory() {
+        let ss = SpreadsheetApp.getActiveSpreadsheet();
+        let sheet = ss.getSheetByName(History.sheetName);
+        let numRows = sheet.getDataRange().getNumRows();
+        let numColumns = sheet.getDataRange().getNumColumns();
+        Logger.log("numRows=" + numRows + ", numColumns=" + numColumns)
+        let historyDtosForMl = [];
+    
+        let values = getPairColumnsValues(sheet, 1, numRows, numColumns);
+        let headers = getHeaders(values);
+        historyDtosForMl = historyDtosForMl.concat(getMlDtos(values, headers));
+        Logger.log(getPairColumnsValues(sheet, 1, numRows, numColumns));
+        return [historyDtosForMl, headers]
+    }
 }
