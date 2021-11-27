@@ -46,11 +46,25 @@ export const Predict = new function() {
             historiesPerToken.forEach((history, token) => {
                 fillGaps(history, notEmptyHistoryDays)
             })
-            // TODO result = callBackend(historiesPerToken, dateToPredict)
+            result = callBackend(historiesPerToken, dateToPredict)
+
+
         }
 
         return result
     };
+
+    function callBackend(historiesPerToken, dateToPredict) {
+        var url = "http://localhost";
+        var options = {
+            "method": "post",
+            "payload": {
+                "dateToPredict": dateToPredict,
+                "historiesPerToken": historiesPerToken
+            }
+        };
+        return UrlFetchApp.fetch(url, options);
+    }
 
     function fillGaps(data, notEmptyHistoryDays) {
         // If data for single row then this row is last. To make Prophet predict it next day and with the same 'y' need make
