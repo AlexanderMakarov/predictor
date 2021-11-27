@@ -60,15 +60,24 @@ function limitHistoryByPeriod(data, lastDayInData, period) {
     return data
 }
 
+const DATE_WORDS = ['date', 'дата', 'time', 'день', 'когда']
+const Y_WORDS = ['quantity', 'количество', 'кол-во', 'кол', 'сколько', 'number', 'qnty', 'count', 'y']
+const ETS_COLUMNS = ['project-task', 'effort', 'description', 'date']
+
 class Tokenizer {
     // Same name strategy.
 
     /**
-     *
+     * Concstructor.
      * @param {Array} data [{'token': str, 'date': Date, 'y': number}, ...]
+     * @param {Array} headers [str, ...] better in order of appearance in sheet.
      */
-    constructor(data) {
+    constructor(data, headers) {
         this.data = data;
+        this.headers = headers;
+        this.headersLowerCase = headers.map(String.toLowerCase);
+        this.dateColumn = findSpecificColumn(DATE_WORDS, true);
+        this.yColumn = findSpecificColumn(Y_WORDS, false);
     }
 
     /**
@@ -78,14 +87,25 @@ class Tokenizer {
      * @returns {'token': Map({'date': Date, 'y': number})}
      */
     getTokenHistories(period) {
-        console.log('getTokenHistories: for period=' + period + ' got data=' + this.data)
         if (!this.data) {
             return null
         }
-        let lastDayInData = this.data[this.data.length - 1].get('date')
-        let result = new Map()
-        let groupedData = groupBy(this.data, 'token')
+        console.log('getTokenHistories: for period=' + period + ' got ' + this.data.length + ' rows data')
+        const dateCol = findDataColumn(this.headers)
+        let lastDayInData = this.data[this.data.length - 1].get(this.dateColumn)
+        // TODO separate infinetily. For now only "one column" and "ETS" cases.
+        let groupedData = null
+        if (this.headersLowerCase == ETS_COLUMNS) {
+            // TODO groupBy(this.data, ETS_COLUMNS[0]).map() {
+
+            // }
+        } else {
+            let unitCol = this.headers.filter(
+                h => h.toLowerCase() != this.dateColumn && h.toLowerCase() != this.yColumn);
+            groupedData = groupBy(this.data, unitCol)
+        }
         console.log("getTokenHistories: found " + groupedData.size + " unique tokens, limiting them...")
+        let result = new Map()
         groupedData.forEach((history, token) => {
             history = limitHistoryByPeriod(history, lastDayInData, period)
             if (history && history.length > 0) {
@@ -101,12 +121,46 @@ class Tokenizer {
     }
 
     getMaxY() {
-        return Math.max.apply(Math, this.data.map(row => row.get('date')));
+        return Math.max.apply(Math, this.data.map(row => row.get(this.dateColumn)));
     }
 
     getNotEmptyHistoryDays() {
         // Should be sorted.
-        return Array.from(this.data.reduce((grouped, x) => grouped.add(x.get('date')), new Set())).sort()
+        return Array.from(this.data.reduce((grouped, x) => grouped.add(x.get(this.dateColumn)), new Set())).sort()
+    }
+
+    findSpecificColumn(words, isSearchShortest) {
+        // 1 step - find all columns possible.
+        let columnsWithWord = {}
+        this.headers.map((column, index) => {
+            c = column.toLowerCase();
+            words.forEach((word) => { // Save all possible columns.
+                if (c == word) {
+                    columnsWithWord[column] = index;
+                }
+            })
+        })
+        console.log("findSpecificColumn: " + words + " column in " + columns + " - got " + columnsWithWord + ".")
+        if (columnsWithWord.length == 1) {
+            return columnsWithWord.keys()[0]
+        } else if (columnsWithWord.length == 0) {
+            return null
+        }
+        // 2 step - set weight by index and number of characters.
+        // 3 step - sort by weight and take first.
+        let column = null
+        let curWeight = 0
+        Object.entries(columnsWithWord).forEach(([c, index]) => {
+            let weight = isSearchShortest
+                    ? (words.length - index) * 1000 + (999 - c.length)
+                    : index // The more right the more chance that it is required column.
+            console.log("findSpecificColumn: set " + weight + " weight for '{" + k + "}'.")
+            if (weight > curWeight) {
+                column = c
+                curWeight = weight
+            }
+        })
+        return column
     }
 }
 

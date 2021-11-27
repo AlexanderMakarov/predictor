@@ -46,17 +46,6 @@ function getMlDto(item, headers) {
     return result;
 }
 
-function mockedResponseFromMLService(data) {
-    data = data.map(x => new Map([['token', x['token']], ['y', x['y']], ['date', new Date(x['date'])]]))
-
-    let tokenizer = new Tokenizer(data);
-    let historiesPerToken = tokenizer.getTokenHistories(Period.MONTHLY)
-    console.log(historiesPerToken)
-    let result = Predict.predict(historiesPerToken, tokenizer, new Date())
-    console.log(result)
-    return result;
-}
-
 function getHeaders(values) {
     const DEFAULT_COLUMNS = ["token", "y", "date"]
     if (values == null || values == undefined || values.length == 0) {
