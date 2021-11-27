@@ -1,5 +1,5 @@
 // Predicts data locally or with back-end. Calls nobody except back-end.
-export const Predict = new function() {
+const Predict = new function() {
 
     /** Round predicted value to this thing. Like 0.1 to use only tens fractions. */
     this.quant = 0.25;
