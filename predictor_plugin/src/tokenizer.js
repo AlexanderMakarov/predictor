@@ -69,15 +69,12 @@ class Tokenizer {
 
     /**
      * Concstructor.
-     * @param {Array} data [{'token': str, 'date': Date, 'y': number}, ...]
-     * @param {Array} headers [str, ...] better in order of appearance in sheet.
+     * @param {Array} data [Map{'token': str, 'date': Date, 'y': number}, ...]
+     * @param {Array} headers [str, ...] in order of appearance in sheet.
      */
     constructor(data, headers) {
         this.data = data;
         this.headers = headers;
-        this.headersLowerCase = headers.map(String.toLowerCase);
-        this.dateColumn = findSpecificColumn(DATE_WORDS, true);
-        this.yColumn = findSpecificColumn(Y_WORDS, false);
     }
 
     /**
@@ -91,17 +88,18 @@ class Tokenizer {
             return null
         }
         console.log('getTokenHistories: for period=' + period + ' got ' + this.data.length + ' rows data')
-        const dateCol = findDataColumn(this.headers)
+        this.dateColumn = this.findSpecificColumn(DATE_WORDS, true);
+        this.yColumn = this.findSpecificColumn(Y_WORDS, false);
         let lastDayInData = this.data[this.data.length - 1].get(this.dateColumn)
         // TODO separate infinetily. For now only "one column" and "ETS" cases.
         let groupedData = null
-        if (this.headersLowerCase == ETS_COLUMNS) {
+        if (this.headers.map(h => h.toLowerCase()) == ETS_COLUMNS) {
             // TODO groupBy(this.data, ETS_COLUMNS[0]).map() {
 
             // }
         } else {
             let unitCol = this.headers.filter(
-                h => h.toLowerCase() != this.dateColumn && h.toLowerCase() != this.yColumn);
+                    h => h.toLowerCase() != this.dateColumn && h.toLowerCase() != this.yColumn)[0];
             groupedData = groupBy(this.data, unitCol)
         }
         console.log("getTokenHistories: found " + groupedData.size + " unique tokens, limiting them...")
@@ -133,14 +131,14 @@ class Tokenizer {
         // 1 step - find all columns possible.
         let columnsWithWord = {}
         this.headers.map((column, index) => {
-            c = column.toLowerCase();
+            let c = column.toLowerCase();
             words.forEach((word) => { // Save all possible columns.
                 if (c == word) {
                     columnsWithWord[column] = index;
                 }
             })
         })
-        console.log("findSpecificColumn: " + words + " column in " + columns + " - got " + columnsWithWord + ".")
+        console.log("findSpecificColumn: '" + words + "' column in '" + this.headers + "' - got " + columnsWithWord + ".")
         if (columnsWithWord.length == 1) {
             return columnsWithWord.keys()[0]
         } else if (columnsWithWord.length == 0) {
@@ -154,7 +152,7 @@ class Tokenizer {
             let weight = isSearchShortest
                     ? (words.length - index) * 1000 + (999 - c.length)
                     : index // The more right the more chance that it is required column.
-            console.log("findSpecificColumn: set " + weight + " weight for '{" + k + "}'.")
+            console.log("findSpecificColumn: set " + weight + " weight for '" + c + "'.")
             if (weight > curWeight) {
                 column = c
                 curWeight = weight

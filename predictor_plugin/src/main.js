@@ -23,3 +23,7 @@ function showDialog() {
   SpreadsheetApp.getUi()
       .showModalDialog(html, 'Please provide a new Date');
 }
+
+function testPrediction() {
+  History.sendHistoryAndGetPredicted();
+}

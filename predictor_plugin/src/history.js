@@ -75,8 +75,16 @@ const History =  new function() {
 
     function mockedResponseFromMLService(data, headers) {
         const startTime = new Date();
-        let tokenizer = new Tokenizer(new Map(Object.entries(data)), headers);
-        let historiesPerToken = tokenizer.getTokenHistories(Period.MONTHLY)
+        let keys = Object.keys(data[0]); // They are the same in all rows.
+        data = data.map(row => {
+            let result = new Map();
+            for (const key of keys) {
+                result.set(key, row[key]);
+            }
+            return result
+        });
+        let tokenizer = new Tokenizer(data, headers);
+        let historiesPerToken = tokenizer.getTokenHistories(Period.WEEKLY)
         console.log(historiesPerToken)
         let result = Predict.predict(historiesPerToken, tokenizer, new Date())
         console.log("Prediction: in " + Math.round(new Date() - startTime) + " ms got " + result)
@@ -85,7 +93,7 @@ const History =  new function() {
 
     function getHistory() {
         let ss = SpreadsheetApp.getActiveSpreadsheet();
-        let sheet = ss.getSheetByName(this.sheetName);
+        let sheet = ss.getSheetByName(History.sheetName);
         let numRows = sheet.getDataRange().getNumRows();
         let numColumns = sheet.getDataRange().getNumColumns();
         Logger.log("numRows=" + numRows + ", numColumns=" + numColumns)
@@ -95,7 +103,6 @@ const History =  new function() {
         let headers = getHeaders(values);
         historyDtosForMl = historyDtosForMl.concat(getMlDtos(values, headers));
         Logger.log(getPairColumnsValues(sheet, 1, numRows, numColumns));
-        Logger.log(historyDtosForMl);
         return [historyDtosForMl, headers]
     }
 }
