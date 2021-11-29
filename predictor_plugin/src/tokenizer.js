@@ -19,8 +19,18 @@ function groupBy(arr, key) { // https://stackoverflow.com/a/39886097/1535127 upd
     return arr.reduce(reducer, new Map())
 }
 
-function logMapElements(value, key, map) {
-    console.log(`m[${key}] = ${value}`);
+function pairsArrayToString(pairsArray) {
+    return '[' + pairsArray.map((key, value) => `m[${key}] = ${value}`).join(', ') + ']';
+}
+
+function shortenized(str, prefixLen, suffixLen) {
+    if (str == null || str == NaN) {
+        return "null"
+    }
+    if (str.length <= prefixLen + suffixLen + 3) {
+        return str;
+    }
+    return str.slice(0, prefixLen) + '...' + str.slice(-suffixLen);
 }
 
 function substractDays(date, days) {
@@ -90,7 +100,8 @@ class Tokenizer {
                 result.set(token, history)
             }
         })
-        console.log('getTokenHistories: ending up with ' + result.size + ' tokens=' + Array.from(result.keys()))
+        console.log('getTokenHistories: ending up with ' + result.size + ' tokens='
+                + Array.from(result.keys()).map(x => shortenized(x, 15, 10)))
         return result
     }
 
@@ -146,7 +157,8 @@ class Tokenizer {
                 }
             })
         })
-        console.log("findSpecificColumn: '" + words + "' column in '" + this.headers + "' - got " + columnsWithWord + ".")
+        console.log("findSpecificColumn: '" + words + "' column in '" + this.headers + "' - got "
+                + pairsArrayToString(Object.entries(columnsWithWord)) + ".")
         if (columnsWithWord.length == 1) {
             return columnsWithWord.keys()[0]
         } else if (columnsWithWord.length == 0) {

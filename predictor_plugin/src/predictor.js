@@ -32,7 +32,7 @@ const Predict = new function() {
 
     function predictDay(historiesPerToken, dateToPredict, notEmptyHistoryDays) {
         let result = new Map();
-        const isLocal = true;
+        const isLocal = false;
         if (isLocal) {
             // local case
             historiesPerToken.forEach((history, token) => {
@@ -46,11 +46,23 @@ const Predict = new function() {
             historiesPerToken.forEach((history, token) => {
                 fillGaps(history, notEmptyHistoryDays)
             })
-            // TODO result = callBackend(historiesPerToken, dateToPredict)
+            result = callBackend(JSON.stringify(Array.from(historiesPerToken.entries())), dateToPredict)
         }
-
         return result
     };
+
+    function callBackend(historiesPerToken, dateToPredict) {
+        const URL = "https://predictorservice-77yud33tza-nn.a.run.app/predict";
+        var options = {
+            "method": "POST",
+            "payload": {
+                "dateToPredict": dateToPredict,
+                'contentType': 'application/json',              
+                "historiesPerToken": JSON.stringify(historiesPerToken)
+            }
+        };
+        return UrlFetchApp.fetch(url, options);
+    }
 
     function fillGaps(data, notEmptyHistoryDays) {
         // If data for single row then this row is last. To make Prophet predict it next day and with the same 'y' need make
