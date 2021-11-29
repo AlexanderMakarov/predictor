@@ -2,3 +2,5 @@
 *.pyc
 data
 *.csv
+**/.clasp.json
+predictor_plugin/.clasp.json

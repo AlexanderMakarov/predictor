@@ -5,16 +5,20 @@ import datetime
 from __init__ import prophet_runner
 
 
+HISTORIES_FIELD = 'historiesPerToken'
+DATE_FIELD = 'dateToPredict'
+
+
 @app.route('/predict', methods=['POST'])
 def index():
     request_data = request.get_json()
     if not request_data or len(request_data) == 0:
         return jsonify({"error": f"Empty data {request_data}"}), 400
-    if 'tokenHistories' not in request_data or 'dateToPredict' not in request_data:
+    if HISTORIES_FIELD not in request_data or DATE_FIELD not in request_data:
         return jsonify({
-            "error": f"Can't find requried 'historiesPerToken' or 'dateToPredict' in {request_data.keys()}"
+            "error": f"Can't find requried '{HISTORIES_FIELD}' or '{DATE_FIELD}' in {request_data.keys()}"
         }), 400
-    return execute_ml(request_data['historiesPerToken'], request_data['dateToPredict'])
+    return execute_ml(request_data[HISTORIES_FIELD], request_data[DATE_FIELD])
 
 
 @app.route('/test', methods=["GET"])

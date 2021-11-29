@@ -25,7 +25,7 @@
             "type": "python",
             "request": "launch",
             "stopOnEntry": false,
-            "pythonPath": "${config:python.pythonPath}",
+            "python": "${command:python.interpreterPath}",
             "program": "${workspaceRoot}/predictor_service/src/run.py",
             "args": [
                 "run"
