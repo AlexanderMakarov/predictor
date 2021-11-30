@@ -1,6 +1,6 @@
 // Converts spreadsheet data into tables which may be predicted. Works with History and CurrentSheet.
 
-const Period = {
+const Period = { // TODO replace with value.
     DAILY: 1,
     WEEKLY: 7,
     MONTHLY: 30,

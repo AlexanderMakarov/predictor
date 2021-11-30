@@ -1,7 +1,7 @@
-// Global namespace which makes user flow.
+// Entry point which makes user flow.
 
 function onOpen(e) {
-  History.fillHistory();
+  History.initialize();
   addMenu();
 }
 
@@ -9,7 +9,7 @@ function addMenu() {
   SpreadsheetApp.getUi()
       .createMenu('Predictor')
       .addSeparator()
-      .addItem("Predict Today", "History.sendHistoryAndGetPredicted")
+      .addItem("Predict Today", "History.predictAndUpdateCurrentSheet")
       .addSeparator()
       .addItem("Save history as Today", "History.saveHistory")
       .addItem('Save history for Date...', 'showDialog')
@@ -25,5 +25,5 @@ function showDialog() {
 }
 
 function testPrediction() {
-  History.sendHistoryAndGetPredicted();
+  History.predictAndUpdateCurrentSheet();
 }

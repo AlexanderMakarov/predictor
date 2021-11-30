@@ -5,72 +5,106 @@ const History =  new function() {
     this.DEFAULT_COLUMNS = ["token", "y", "date"]
 
     /**
-     * Saves current sheet into history.
+     * Saves current sheet into history (existing).
      * @param {Date} date Date to save current history on. 
      */
     this.saveHistory = function(date) {
-        let dateToSet = !date ? new Date(new Date().toDateString()) : date;
-        let currentSheet  = SpreadsheetApp.getActiveSheet();
-        let numRows = currentSheet.getDataRange().getNumRows();
-        let numColumns = currentSheet.getDataRange().getNumColumns();
-        const values = getSheetValues(currentSheet, 1, numRows, numColumns);
-        values.forEach(row => row.push(dateToSet))
-
+        const startTime = new Date();
+        const headers = getHeaders(SpreadsheetApp.getActiveSheet());
         const historySheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(History.SHEET_NAME);
+        let values = getSheetAllValues(SpreadsheetApp.getActiveSheet(), !!headers);
+
+        // Take out data to save into history.
+        if (checkEts(headers)) {
+
+            // Compare with existing history and add only difference without date. 4th column is 'date'.
+            const lastDayInHistory = historySheet.getRange(historySheet.getLastRow(), 4, 1, 1)
+            values = values.filter(item => isRowNotEmpty(item) && row[3] > lastDayInHistory);
+        } else {
+
+            // Add all for specified date or today. Add 'date' column values.
+            const dateToSet = !date ? new Date(new Date().toDateString()) : date; // Trim time.
+            values.forEach(row => row.push(dateToSet))
+        }
+
+        // Append 'values' to history.
         historySheet.getRange(historySheet.getLastRow() + 1, 1, values.length, values[0].length).setValues(values);
+        console.log("saveHistory: appended " + numRows + " rows " + numColumns + " columns into history in "
+                + humanDiffWithCurrentDate(startTime) + ".")
     }
 
     /**
-     * Sends history to ML engine and adds result to current sheet.
+     * Sends history to ML engine and updates current sheet with results.
      */
-    this.sendHistoryAndGetPredicted = function() {
-        let [data, headers] = getHistory(); // Headers required to put prediction columns in right order.
-        let prediciton = mockedResponseFromMLService(data, headers);
-        let currentSheet = SpreadsheetApp.getActiveSheet();
-        let values = [];
-        const isEts = headers.map(h => h.toLowerCase()).toString() == ETS_COLUMNS.toString();
+    this.predictAndUpdateCurrentSheet = function() {
+        const startTime = new Date();
+        const historySheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(History.SHEET_NAME);
+        const headers = getHeaders(historySheet)
+        const history = getAllValues(historySheet, true);
+        const isEts = checkEts(headers);
+        const headersWithoutDate = headers.slice(0, headers.length - 2);
+        let prediction = predictDay(history, headersWithoutDate, new Date());// TODO ask day to predict.
+
+        // Update current sheet.
+        const currentSheet = SpreadsheetApp.getActiveSheet();
         if (isEts) {
-            values.push(["", "", ""])
+            currentSheet.getRange(currentSheet.getLastRow() + 3, 1, prediction.length, prediction[0].length).setValues(prediction);
         } else {
-            currentSheet.clear();
+            if (getHeaders(currentSheet)) { // If current sheet have headers then keep them but from history.
+                prediction = headers + prediction;
+            }
+            currentSheet.clear(); // Predicted date size may be less than existing.
+            currentSheet.getRange(1, 1, prediction.length, prediction[0].length).setValues(prediction);
         }
-        values = values + prediciton;
-        currentSheet.appendRow(values);
+        console.log("predictAndUpdateCurrentSheet: predicted " + prediction.length + " rows in "
+                + humanDiffWithCurrentDate(startTime) + ".")
     }
 
-    this.fillHistory = function() {
+    /**
+     * Creates and fills history sheet. Does nothing if it exists already.
+     */
+    this.initialize = function() {
         let historySheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(History.SHEET_NAME);
-        if (historySheet == null || historySheet == undefined) {
-            let allSheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
-            let nameToIgnore = SpreadsheetApp.getActiveSheet().getName();
-            let filteredSheets = allSheets.filter(sheet => isValidSheetForInitialLoad(sheet.getName(), nameToIgnore));
-            let newSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet();
-            newSheet.setName(History.SHEET_NAME);
+        if (!historySheet) {
+            const startTime = new Date();
+            const currentSheet = SpreadsheetApp.getActiveSheet();
+            const headersCurrentSheet = getHeaders(currentSheet);
+            let filteredSheets = [currentSheet]; // By-default "ETS" mode.
+            const isEts = checkEts(headersCurrentSheet);
+            if (!isEts) {
+                filteredSheets = SpreadsheetApp.getActiveSpreadsheet().getSheets()
+                        .filter(sheet => isValidSheetForInitialLoad(sheet.getName(), currentSheet.getName()));
+            }
+            historySheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet();
+            historySheet.setName(History.SHEET_NAME);
     
             if (filteredSheets.length > 0) {
-    
-                let initialNumColumns = filteredSheets[0].getDataRange().getNumColumns();
-                let headers = getHeaders(getSheetValues(filteredSheets[0], 1, 1, initialNumColumns))
-                        .filter(header => header != this.DATE_COL);
-                headers.push(this.DATE_COL);
-                newSheet.appendRow(headers);
+                const headers = getHeaders(filteredSheets[0]);
+                if (!headers) {
+                    headers = History.DEFAULT_COLUMNS;
+                } else if (isEts) {
+                    headers.push(this.DATE_COL);
+                }
+                historySheet.appendRow(headers);
                 filteredSheets.forEach(sheet => {
                     let date = getParsableDate(sheet.getName());
-                    let numRows = sheet.getDataRange().getNumRows();
-                    let numColumns = sheet.getDataRange().getNumColumns();
-                    let values = getSheetValues(sheet, 1, numRows, numColumns);
-    
-                    if (isHeadersRowProvided(values)) {
-                        values.shift();
+                    let values = getSheetAllValues(sheet, !!headers)
+                    if (!isEts) {
+                        values.forEach(row => row.push(date));
                     }
-    
-                    values.forEach(value => {
-                        value.push(date);
-                        newSheet.appendRow(value);
-                    })
+                    historySheet.getRange(historySheet.getLastRow() + 1, 1, values.length, values[0].length)
+                            .setValues(values);
+                    console.log("initialize: added " + values.length + " rows into history from sheet '"
+                            + sheet.getName() + "'.")
                 });
             }
+            console.log("initialize: parsed " + filteredSheets.length + " sheets into history in "
+                    + humanDiffWithCurrentDate(startTime) + ".")
         }
+    }
+
+    function checkEts(headers) {
+        return headers && headers.map(h => h.toLowerCase()).toString() == ETS_COLUMNS.toString();
     }
 
     function getParsableDate(date) {
@@ -86,78 +120,67 @@ const History =  new function() {
         return sheetName != nameToIgnore && isDate(getParsableDate(sheetName));
     }
 
-    function isHeadersRowProvided(values) {
-        for (let x of values[0]) {
-            if (!isNaN(x)) {
-                return false;
+    /**
+     * Tries to extract headers from provided sheet.
+     * @param {Sheet} sheet Sheet to search header in.
+     * @returns Array of column names in order or `null` if header is not found.
+     */
+    function getHeaders(sheet) {
+        if (sheet) {
+            const firstRow = sheet.getRange(1, 1, 1, sheet.getDataRange().getNumColumns()).getValues()[0];
+            if (firstRow && firstRow.every(x => isNaN(x))) {
+                return firstRow;
             }
         }
-        return true;
+        return null;
     }
 
-    function getHeaders(values) {
-        if (!values) {
-            return History.DEFAULT_COLUMNS;
-        }
-        for (let x of values[0]) {
-            if (!isNaN(x)) {
-                return History.DEFAULT_COLUMNS;
-            }
-        }
-        return values[0];
+    function getSheetAllValues(sheet, isSkipHeader) {
+        const numRows = sheet.getDataRange().getNumRows();
+        const numColumns = sheet.getDataRange().getNumColumns();
+        return sheet.getRange(isSkipHeader ? 2 : 1, 1, numRows, numColumns).getValues()
+                .filter(item => isRowNotEmpty(item));
     }
 
-    function mapPredictMap(data, headers) {
-        const startTime = new Date();
-        let keys = Object.keys(data[0]); // They are the same in all rows.
-        data = data.map(row => {
-            let result = new Map();
+    /**
+     * Sends provided data to prediction engine and returns response. Performs required mapping.
+     * @param {Array} values 2D array of values from history.
+     * @param {Array} headersWithoutDate Arrays of headers for values without 'date'.
+     * @param {Date} date Day to predict.
+     * @returns Array of predicted values in order of headers.
+     */
+    function predictDay(values, headersWithoutDate, date) {
+        const startTime = new Date(); // TODO maybe use 2D array and headers separately.
+        const keys = Object.keys(values[0]); // Headers are the same in all rows.
+        values = values.map(row => {
+            let map = new Map();
             for (const key of keys) {
-                result.set(key, row[key]);
+                map.set(key, row[key]);
             }
-            return result
+            return map;
         });
-        let tokenizer = new Tokenizer(data, headers);
-        let historiesPerToken = tokenizer.getTokenHistories(Period.WEEKLY)
-        console.log(historiesPerToken)
-        let prediction = Predict.predict(historiesPerToken, tokenizer, new Date())
-        console.log("Prediction: in " + Math.round(new Date() - startTime) + " ms got " + result)
+        const tokenizer = new Tokenizer(values, headersWithoutDate);
+        const historiesPerToken = tokenizer.getTokenHistories(Period.WEEKLY) // TODO remove period
+        // console.log(historiesPerToken)
+        const prediction = Predict.predict(historiesPerToken, tokenizer, date)
+        console.log("predictToday: got " + prediction.length + " rows in "
+                + humanDiffWithCurrentDate(startTime) + ".")
         let result = [];
         prediction.forEach(row => {
-            for (let key of headers) {
-                if (isEts) {
-                    values.push(row.get(key));
-                } else if (key != this.DATE_COL && row.has(key)) {
-                    values.push(row.get(key));
-                }
+            for (let key of headersWithoutDate) {
+                values.push(row.get(key));
             }
         });
+        console.log("predictToday: completed " + result.length + " rows in "
+                + humanDiffWithCurrentDate(startTime) + ".")
         return result;
     }
 
-    function getHistory() {
-        let ss = SpreadsheetApp.getActiveSpreadsheet();
-        let sheet = ss.getSheetByName(History.SHEET_NAME);
-        let numRows = sheet.getDataRange().getNumRows();
-        let numColumns = sheet.getDataRange().getNumColumns();
-        console.log("getHistory: numRows=" + numRows + ", numColumns=" + numColumns)
-        let historyDtosForMl = [];
-    
-        let values = getSheetValues(sheet, 1, numRows, numColumns);
-        let headers = getHeaders(values);
-        historyDtosForMl = historyDtosForMl.concat(getMlDtos(values, headers));
-        return [historyDtosForMl, headers]
-    }
-
-    function isRowEmpty(row) {
+    function isRowNotEmpty(row) {
         return !!row && row.every(x => !!x);
     }
 
-    function getSheetValues(sheet, colStart, numRows, colEnd) {
-        return sheet.getRange(1, colStart, numRows, colEnd).getValues().filter(item => isRowEmpty(item));
-    }
-    
-    function getPairColumnsValuesWithOffset(sheet, colIndex, numRows, colOffset, rowOffset) {
-        return sheet.getRange(rowOffset, colIndex, numRows, colOffset).getValues().filter(item => isRowEmpty(item));
+    function humanDiffWithCurrentDate(startTime) {
+        return Math.round(new Date() - startTime) + " ms";
     }
 }
