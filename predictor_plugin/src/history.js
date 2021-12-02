@@ -40,15 +40,16 @@ const History =  new function() {
         const startTime = new Date();
         const historySheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(History.SHEET_NAME);
         const headers = getHeaders(historySheet)
-        const history = getAllValues(historySheet, true);
+        const history = historySheet.getRange(2, 1, historySheet.getLastRow(), historySheet.getLastColumn()).getValues()
+                .filter(item => isRowNotEmpty(item));
         const isEts = checkEts(headers);
-        const headersWithoutDate = headers.slice(0, headers.length - 2);
-        let prediction = predictDay(history, headersWithoutDate, new Date());// TODO ask day to predict.
+        let prediction = predictDay(history, headers, new Date());// TODO ask day to predict.
 
         // Update current sheet.
         const currentSheet = SpreadsheetApp.getActiveSheet();
         if (isEts) {
-            currentSheet.getRange(currentSheet.getLastRow() + 3, 1, prediction.length, prediction[0].length).setValues(prediction);
+            currentSheet.getRange(currentSheet.getLastRow() + 3, 1, prediction.length, prediction[0].length)
+                    .setValues(prediction);
         } else {
             if (getHeaders(currentSheet)) { // If current sheet have headers then keep them but from history.
                 prediction = headers + prediction;
@@ -145,32 +146,19 @@ const History =  new function() {
     /**
      * Sends provided data to prediction engine and returns response. Performs required mapping.
      * @param {Array} values 2D array of values from history.
-     * @param {Array} headersWithoutDate Arrays of headers for values without 'date'.
+     * @param {Array} headers Arrays of headers for values.
      * @param {Date} date Day to predict.
      * @returns Array of predicted values in order of headers.
      */
-    function predictDay(values, headersWithoutDate, date) {
+    function predictDay(values, headers, date) {
         const startTime = new Date(); // TODO maybe use 2D array and headers separately.
         const keys = Object.keys(values[0]); // Headers are the same in all rows.
-        values = values.map(row => {
-            let map = new Map();
-            for (const key of keys) {
-                map.set(key, row[key]);
-            }
-            return map;
-        });
-        const tokenizer = new Tokenizer(values, headersWithoutDate);
+        const tokenizer = new Tokenizer(values, headers);
         const historiesPerToken = tokenizer.getTokenHistories(Period.WEEKLY) // TODO remove period
         // console.log(historiesPerToken)
-        const prediction = Predict.predict(historiesPerToken, tokenizer, date)
+        const result = Predict.predict(historiesPerToken, tokenizer, date)
         console.log("predictToday: got " + prediction.length + " rows in "
                 + humanDiffWithCurrentDate(startTime) + ".")
-        let result = [];
-        prediction.forEach(row => {
-            for (let key of headersWithoutDate) {
-                values.push(row.get(key));
-            }
-        });
         console.log("predictToday: completed " + result.length + " rows in "
                 + humanDiffWithCurrentDate(startTime) + ".")
         return result;

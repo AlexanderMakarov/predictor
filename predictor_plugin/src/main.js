@@ -8,7 +8,6 @@ function onOpen(e) {
 function addMenu() {
   SpreadsheetApp.getUi()
       .createMenu('Predictor')
-      .addSeparator()
       .addItem("Predict Today", "History.predictAndUpdateCurrentSheet")
       .addSeparator()
       .addItem("Save history as Today", "History.saveHistory")
@@ -18,10 +17,14 @@ function addMenu() {
 
 function showDialog() {
   var html = HtmlService.createHtmlOutputFromFile('static/dateDialog')
-      .setWidth(400)
-      .setHeight(300);
+      .setWidth(500)
+      .setHeight(400);
   SpreadsheetApp.getUi()
-      .showModalDialog(html, 'Please provide a new Date');
+      .showModalDialog(html, 'Please provide date to save content at');
+}
+
+function saveHistory(date) {
+  History.saveHistory(date);
 }
 
 function testPrediction() {

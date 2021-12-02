@@ -1,43 +1,42 @@
-<div class="demo" >
-    <style type="text/css"> .demo { margin: 30px ; color : #AAA ; font-family : arial sans-serif ;font-size : 10pt }
-    p { color : red ; font-size : 11pt }
-    </style>
-    <link rel="stylesheet" href="//ajax.googleapis.com/ajax/libs/jqueryui/1.9.1/themes/cupertino/jquery-ui.css">
-
-    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
-    <script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.9.1/jquery-ui.min.js"></script>
-
-    <!--<p>Please select a date below :</p>-->
-
-    <p style="display: inline-grid; margin-top: 80px;"> <input size="46px" type="text" name="StartDate" id="startdatepicker" />
-    <script>
-        $( "#startdatepicker" ).datepicker({
-            showWeek: true,
-            firstDay: 0,
-        });
-    </script>
-    <input style="margin-top: 10px" type="button" value="Save" onclick="submitDate()" /></p>
+<style type="text/css">
+    form {
+        box-sizing: border-box;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+    }
+    input {
+        display: block;
+        outline: none;
+        width: 100%;
+        padding: 10px;
+        margin: 5px;
+        text-align: center;
+    }
+</style>
+<form id="set-date-form">
+    <input id="date" type="date" onchange="onDateChange()" />
+    <input id="btn-save" type="button" value="Save current sheet in history at ..." onclick="submitDate()" />
 </div>
-
-
 <script>
-    // Pass input dates to server-side submitDates()
+    function onDateChange(element) {
+        const date = new Date(document.getElementById('date').value).toDateString();
+        document.getElementById('btn-save').value = "Save current sheet in history at " + date;
+    }
     function submitDate() {
-        var startDate = $("#startdatepicker").val();
-
         google.script.run
             .withSuccessHandler(
                 // Dates delivered, close dialog
                 function() {
                     google.script.host.close();
                 })
-            // Display failure messages
             .withFailureHandler(
+                // Display failure messages
                 function() {
-                    var div = $('<div id="error" class="error">' + msg + '</div>');
-                    $(element).after($("#demo"));
+                    var div = document.createTextNode('<div id="error" style="color: red;">' + msg + '</div>');
+                    document.getElementById('set-date-form').appendChild(div)
                 })
-            .saveHistory(startDate);
+            .saveHistory(new Date(document.getElementById("startdatepicker").value));
     }
-
 </script>

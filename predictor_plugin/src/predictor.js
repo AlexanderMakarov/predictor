@@ -32,7 +32,7 @@ const Predict = new function() {
 
     function predictDay(historiesPerToken, dateToPredict, notEmptyHistoryDays) {
         let result = new Map();
-        const isLocal = false;
+        const isLocal = false; // TODO make real switcher.
         if (isLocal) {
             // local case
             historiesPerToken.forEach((history, token) => {
