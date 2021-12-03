@@ -1,12 +1,5 @@
 // Converts spreadsheet data into tables which may be predicted. Works with History and CurrentSheet.
 
-const Period = { // TODO replace with value.
-    DAILY: 1,
-    WEEKLY: 7,
-    MONTHLY: 30,
-    YEARLY: 365,
-}
-
 function groupBy(mapsArray, key) { // https://stackoverflow.com/a/39886097/1535127 updated for Map
     let reducer = (grouped, item) => {
         let option = item[key];
@@ -66,7 +59,7 @@ class Tokenizer {
     /**
      * Concstructor.
      * @param {Array} data 2D array of history values.
-     * @param {Array} headers Array of strings with headers in order of values provided.
+     * @param {Array} headers Array of headers in order of values provided.
      */
     constructor(data, headers) {
         this.data = data;
@@ -76,15 +69,13 @@ class Tokenizer {
 
     /**
      * Tokenizes data with "same token" strategy. Produces token = value from 'token' column.
-     * @param {Array} data [{'token': str, 'date': Date, 'y': number}, ...]
-     * @param {Period} period Assumed periods to tokenize data for. Affects limitation for old data.
      * @returns {'token': Map({'date': Date, 'y': number})}
      */
-    getTokenHistories(period) {
+    getTokenHistories() {
         if (!this.data) {
             return null;
         }
-        console.log('getTokenHistories: for period=' + period + ' got ' + this.data.length + ' rows of '
+        console.log('getTokenHistories: got ' + this.data.length + ' rows of '
                 + (this.isEts ? 'ETS' : 'token-column') + ' data')
         this.dateCol = this.findSpecificColumn(DATE_WORDS, true);
         this.dateColIndex = this.headers.findIndex(x => x == this.dateCol);
@@ -112,7 +103,7 @@ class Tokenizer {
         console.log("getTokenHistories: found " + groupedData.size + " unique tokens, limiting them...")
         let result = new Map()
         groupedData.forEach((history, token) => {
-            history = this.limitHistoryByPeriod(history, lastDayInData, period)
+            history = this.limitHistory(history, lastDayInData)
             if (history && history.length > 0) {
                 result.set(token, history)
             }
@@ -122,11 +113,26 @@ class Tokenizer {
         return result
     }
 
-    limitHistoryByPeriod(data, lastDayInData, period) {
-        // Measure relative toperiodw in result.
+    /**
+     * Finds not empty history days.
+     * @returns Set of days in history having values in "starting from oldest" order.
+     */
+    getNotEmptyHistoryDays() {
+        return Array.from(this.data.reduce((grouped, x) => grouped.add(x[this.dateColIndex]), new Set())).sort()
+    }
+
+    /**
+     * Finds max 'y' value in history.
+     * @returns Max 'y' value.
+     */
+    getMaxY() {
+        return Math.max.apply(Math, this.data.map(row => row[this.dateColIndex]));
+    }
+
+    limitHistory(data, lastDayInData) {
         // 1. (checked few times) If only one row it should be in the last day.
-        // 2. Last occurence shouldn't be older than 30 periods.
-        // 3. Max history is 60 periods.
+        // - 2. Last occurence shouldn't be older than 30 periods.
+        // - 3. Max history is 60 periods.
         // 4. At least one row in result.
         if (!data || data.length < 1) {
             return null;
@@ -134,18 +140,18 @@ class Tokenizer {
         if (this.checkNotOneRowOnDifferentDay(data, lastDayInData)) { // 1
             return null;
         }
-        let lastDay = data[data.length - 1][this.dateColIndex]
-        if (Math.ceil(lastDayInData - lastDay) / MS_PER_DAY > 30 * period) { // 2
-            return null;
-        }
-        let dayNotOlderThan = substractDays(lastDayInData, 60 * period) // 3
-        data = data.filter(x => x[this.dateColIndex] >= dayNotOlderThan)
-        if (data.length < 1) { // 4
-            return null;
-        }
-        if (this.checkNotOneRowOnDifferentDay(data, lastDayInData)) { // 1
-            return null;
-        }
+        // let lastDay = data[data.length - 1][this.dateColIndex]
+        // if (Math.ceil(lastDayInData - lastDay) / MS_PER_DAY > 30 * period) { // 2
+        //     return null;
+        // }
+        // let dayNotOlderThan = substractDays(lastDayInData, 60 * period) // 3
+        // data = data.filter(x => x[this.dateColIndex] >= dayNotOlderThan)
+        // if (data.length < 1) { // 4
+        //     return null;
+        // }
+        // if (this.checkNotOneRowOnDifferentDay(data, lastDayInData)) { // 1
+        //     return null;
+        // }
         return data;
     }
 

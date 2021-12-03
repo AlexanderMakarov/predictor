@@ -1,18 +1,19 @@
-// Predicts data locally or with back-end. Calls nobody except back-end.
+// Predicts 'y' value basing on time series. Locally or with back-end call.
 const Predict = new function() {
 
+    // TODO take from settings.
     /** Round predicted value to this thing. Like 0.1 to use only tens fractions. */
     this.quant = 0.25;
     /** If predicted less that this value then remove token from prediction. */
     this.thresholdNotLess = 0.25;
 
     /** 
-     * Predicts specific day.
+     * Predicts specific day for multiple tokens.
      * 
-     * @param {Map} historiesPerToken {'token': [{'date': Date, 'y': number}]}
-     * @param {Tokenizer} tokenizer Tokenizer
-     * @param {Date} dateToPredict Date
-     * @returns {Array} Rows as 'tokenizer.getNotEmptyHistoryDays' provides + 'date'
+     * @param {Map} historiesPerToken {'token': [number, Date]} Tokens and history to predict token value on.
+     * @param {Tokenizer} tokenizer Tokenizer object for additional context about data.
+     * @param {Date} dateToPredict Date to make prediction for.
+     * @returns {Array} 2D array with predicted [number, Date] rows.
      */
     this.predict = function(historiesPerToken, tokenizer, dateToPredict) {
         let notEmptyHistoryDays = tokenizer.getNotEmptyHistoryDays()
@@ -22,19 +23,16 @@ const Predict = new function() {
         dayPrediction.forEach((y, token) => {
             if (y >= this.thresholdNotLess) {
                 let yQuantized = Number.parseInt(y * (1 / this.quant)) * this.quant;
-                let row = tokenizer.expandTokenPrediction(token, Math.min(yQuantized, maxY))
-                row.set('date', dateToPredict)
-                result.push(row)
+                result.push([token, yQuantized])
             }
         })
         return result;
     }
 
     function predictDay(historiesPerToken, dateToPredict, notEmptyHistoryDays) {
-        let result = new Map();
+        let result = [];
         const isLocal = false; // TODO make real switcher.
         if (isLocal) {
-            // local case
             historiesPerToken.forEach((history, token) => {
                 history = fillGaps(history, notEmptyHistoryDays)
                 let prediction = predictToken(history, dateToPredict)
@@ -65,17 +63,41 @@ const Predict = new function() {
     }
 
     function fillGaps(data, notEmptyHistoryDays) {
-        // If data for single row then this row is last. To make Prophet predict it next day and with the same 'y' need make
-        // line, i.e. add the same 'y' to previous day ONLY.
         if (data.length == 1) {
-            data.push(new Map([['date', notEmptyHistoryDays[notEmptyHistoryDays.length - 2]], ['y', data[0].get('y')]]))
+            // If history is presented by single event then it assumed to be the last event.
+            // To make model predict the same 'y' for the next time it is required to show a line for it,
+            // i.e. enhance history with the same 'y' to previous day.
+            data.push([notEmptyHistoryDays[notEmptyHistoryDays.length - 2], data[0][1]]);
         } else {
-            // Add '0' to all days between spare days. We expect that if day exists in dataset then it contains all tokens.
+            // Add '0' to all days between spare days. Assume that if day exists in history then it contains all tokens.
             // If don't add those '0' then model will approximate graph into line between 2 not adjusted points.
-            let existingDays = Set(data.map(h => h.get('date')))
-            let firstDay = data[0].get('date')
-            let daysToFill = notEmptyHistoryDays.filter(d => d > firstDay).filter(d => !existingDays.includes(d))
-            data.push(...daysToFill.map(d => new Map([['date', d], ['y', 0]])))
+            // let existingDays = Set(data.map(row => row[1]));
+            // let firstDay = data[0][1];
+            // let daysToFill = notEmptyHistoryDays.filter(d => d > firstDay).filter(d => !existingDays.includes(d));
+            const daysIterator = notEmptyHistoryDays.values();
+            // 1) Put first row as is.
+            const dataTmp = [data[0]]; // Container of resutl.
+            let prevDay = data[0][1]; // Container for previous day.
+            // 2) Iterate days iterator until find current day.
+            let iteratorResult = null;
+            for (iteratorResult = daysIterator.next(); iteratorResult.value < prevDay; );
+            // 3) Before each next row in data fill gaps with y=0.
+            for (let i = 1; i < data.length - 1; i++) {
+                let row = data[i];
+                let rowDay = row[1];
+                iteratorResult = daysIterator.next();
+                while (rowDay > iteratorResult.value || !iteratorResult.done) {
+                    dataTmp.push([0, iteratorResult.value]);
+                    iteratorResult = daysIterator.next();
+                }
+                dataTmp.push(row);
+            }
+            // 4) After data days end continue iterate days with adding y=0 for all remained days.
+            while (!iteratorResult.done) {
+                dataTmp.push([0, iteratorResult.value]);
+                iteratorResult = daysIterator.next();
+            }
+            data = dataTmp;
         }
         return data;
     }

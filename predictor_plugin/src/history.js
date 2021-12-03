@@ -151,10 +151,10 @@ const History =  new function() {
      * @returns Array of predicted values in order of headers.
      */
     function predictDay(values, headers, date) {
-        const startTime = new Date(); // TODO maybe use 2D array and headers separately.
+        const startTime = new Date();
         const keys = Object.keys(values[0]); // Headers are the same in all rows.
         const tokenizer = new Tokenizer(values, headers);
-        const historiesPerToken = tokenizer.getTokenHistories(Period.WEEKLY) // TODO remove period
+        const historiesPerToken = tokenizer.getTokenHistories() // TODO remove period
         // console.log(historiesPerToken)
         const result = Predict.predict(historiesPerToken, tokenizer, date)
         console.log("predictToday: got " + prediction.length + " rows in "
