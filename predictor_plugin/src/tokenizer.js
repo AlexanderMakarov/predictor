@@ -69,7 +69,7 @@ class Tokenizer {
 
     /**
      * Tokenizes data with "same token" strategy. Produces token = value from 'token' column.
-     * @returns {'token': Map({'date': Date, 'y': number})}
+     * @returns Map{'token': [[number, timestamp], ], } for prediction call.
      */
     getTokenHistories() {
         if (!this.data) {
@@ -77,11 +77,14 @@ class Tokenizer {
         }
         console.log('getTokenHistories: got ' + this.data.length + ' rows of '
                 + (this.isEts ? 'ETS' : 'token-column') + ' data')
+        // 1) Find data characteristics like specific column indexes.
+        // TODO keep only indexes.
         this.dateCol = this.findSpecificColumn(DATE_WORDS, true);
         this.dateColIndex = this.headers.findIndex(x => x == this.dateCol);
         this.yCol = this.findSpecificColumn(Y_WORDS, false);
         this.yColIndex = this.headers.findIndex(x => x == this.yCol);
-        let lastDayInData = new Date(this.data[this.data.length - 1][this.dateColIndex]);
+        let lastTimestampInData = new Date(this.data[this.data.length - 1][this.dateColIndex]);
+        // 2) Tokenize data.
         // TODO separate infinetily. For now only "token-column" and "ETS" cases.
         let groupedData = null // {token: [Map{...}]}
         if (this.isEts) {
@@ -96,16 +99,18 @@ class Tokenizer {
                 }
             })
         } else {
+            // TODO expand to any number of 'token' columns. Now only first 'not date' and 'not y'.
             const tokenColIndex = this.headers.findIndex(h => 
                     h.toLowerCase() != this.dateCol && h.toLowerCase() != this.yCol);
             groupedData = groupBy(this.data, tokenColIndex)
         }
         console.log("getTokenHistories: found " + groupedData.size + " unique tokens, limiting them...")
+        // 3) Limit history and convert rows to '[number, timestamp]' format (i.e. ['y', 'date']).
         let result = new Map()
         groupedData.forEach((history, token) => {
-            history = this.limitHistory(history, lastDayInData)
+            history = this.limitHistory(history, lastTimestampInData)
             if (history && history.length > 0) {
-                result.set(token, history)
+                result.set(token, history.map(x => [Number.parseFloat(x[this.yColIndex]), new Date(x[this.dateColIndex]).getTime()]))
             }
         })
         console.log('getTokenHistories: ending up with ' + result.size + ' tokens='
@@ -118,7 +123,9 @@ class Tokenizer {
      * @returns Set of days in history having values in "starting from oldest" order.
      */
     getNotEmptyHistoryDays() {
-        return Array.from(this.data.reduce((grouped, x) => grouped.add(x[this.dateColIndex]), new Set())).sort()
+        return Array.from(this.data.reduce(
+                (grouped, x) => grouped.add(new Date(x[this.dateColIndex]).getTime()), new Set())
+            ).sort()
     }
 
     /**
@@ -129,7 +136,7 @@ class Tokenizer {
         return Math.max.apply(Math, this.data.map(row => row[this.dateColIndex]));
     }
 
-    limitHistory(data, lastDayInData) {
+    limitHistory(data, lastTimestampInData) {
         // 1. (checked few times) If only one row it should be in the last day.
         // - 2. Last occurence shouldn't be older than 30 periods.
         // - 3. Max history is 60 periods.
@@ -137,22 +144,30 @@ class Tokenizer {
         if (!data || data.length < 1) {
             return null;
         }
-        if (this.checkNotOneRowOnDifferentDay(data, lastDayInData)) { // 1
+        if (this.checkNotOneRowOnDifferentDay(data, lastTimestampInData)) { // 1
             return null;
         }
         // let lastDay = data[data.length - 1][this.dateColIndex]
-        // if (Math.ceil(lastDayInData - lastDay) / MS_PER_DAY > 30 * period) { // 2
+        // if (Math.ceil(lastTimestampInData - lastDay) / MS_PER_DAY > 30 * period) { // 2
         //     return null;
         // }
-        // let dayNotOlderThan = substractDays(lastDayInData, 60 * period) // 3
+        // let dayNotOlderThan = substractDays(lastTimestampInData, 60 * period) // 3
         // data = data.filter(x => x[this.dateColIndex] >= dayNotOlderThan)
         // if (data.length < 1) { // 4
         //     return null;
         // }
-        // if (this.checkNotOneRowOnDifferentDay(data, lastDayInData)) { // 1
+        // if (this.checkNotOneRowOnDifferentDay(data, lastTimestampInData)) { // 1
         //     return null;
         // }
         return data;
+    }
+
+    expandTokenPrediction(token, y, dateToPredict) {
+        if (this.isEts) {
+            const parts = token.split(SEPARATOR);
+            return [parts[0], y, parts[1], dateToPredict]
+        }
+        return [token, y];
     }
 
     checkNotOneRowOnDifferentDay(data, day) {
@@ -223,5 +238,5 @@ class Tokenizer {
 // let historiesPerToken = tokenizer.getTokenHistories(Period.MONTHLY)
 // console.log(historiesPerToken)
 // import { Predict } from './predictor.js'
-// let result = Predict.predict(historiesPerToken, tokenizer, new Date())
+// let result = Predictor.predict(historiesPerToken, tokenizer, new Date())
 // console.log(result)

@@ -43,7 +43,7 @@ const History =  new function() {
         const history = historySheet.getRange(2, 1, historySheet.getLastRow(), historySheet.getLastColumn()).getValues()
                 .filter(item => isRowNotEmpty(item));
         const isEts = checkEts(headers);
-        let prediction = predictDay(history, headers, new Date());// TODO ask day to predict.
+        const prediction = predictDay(history, headers, new Date());// TODO ask day to predict.
 
         // Update current sheet.
         const currentSheet = SpreadsheetApp.getActiveSheet();
@@ -147,20 +147,18 @@ const History =  new function() {
      * Sends provided data to prediction engine and returns response. Performs required mapping.
      * @param {Array} values 2D array of values from history.
      * @param {Array} headers Arrays of headers for values.
-     * @param {Date} date Day to predict.
+     * @param {Date} dateToPredict Day to predict.
      * @returns Array of predicted values in order of headers.
      */
-    function predictDay(values, headers, date) {
+    function predictDay(values, headers, dateToPredict) {
         const startTime = new Date();
-        const keys = Object.keys(values[0]); // Headers are the same in all rows.
         const tokenizer = new Tokenizer(values, headers);
         const historiesPerToken = tokenizer.getTokenHistories() // TODO remove period
-        // console.log(historiesPerToken)
-        const result = Predict.predict(historiesPerToken, tokenizer, date)
-        console.log("predictToday: got " + prediction.length + " rows in "
+        const prediction = Predictor.predict(historiesPerToken, tokenizer, dateToPredict); // Map{token: y}.
+        console.log("predictToday: predicted " + prediction.size + " rows/tokens in "
                 + humanDiffWithCurrentDate(startTime) + ".")
-        console.log("predictToday: completed " + result.length + " rows in "
-                + humanDiffWithCurrentDate(startTime) + ".")
+        const result = [];
+        prediction.forEach((y, token) => result.push(tokenizer.expandTokenPrediction(token, y, dateToPredict)));
         return result;
     }
 
