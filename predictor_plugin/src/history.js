@@ -152,11 +152,14 @@ const History =  new function() {
      */
     function predictDay(values, headers, dateToPredict) {
         const startTime = new Date();
+        // Tokenize data.
         const tokenizer = new Tokenizer(values, headers);
-        const historiesPerToken = tokenizer.getTokenHistories() // TODO remove period
-        const prediction = Predictor.predict(historiesPerToken, tokenizer, dateToPredict); // Map{token: y}.
+        const historiesPerToken = tokenizer.getTokenHistories(); // Map{token: [[y, timestamp], ], }
+        // Predict day by specified histories.
+        const prediction = Predictor.predict(historiesPerToken, tokenizer, dateToPredict); // Map{token: y, }.
         console.log("predictToday: predicted " + prediction.size + " rows/tokens in "
                 + humanDiffWithCurrentDate(startTime) + ".")
+        // Convert prediction from Map{token: y, } format to Spreadsheet rows.
         const result = [];
         prediction.forEach((y, token) => result.push(tokenizer.expandTokenPrediction(token, y, dateToPredict)));
         return result;

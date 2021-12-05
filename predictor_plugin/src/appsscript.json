@@ -5,6 +5,7 @@
   "exceptionLogging": "STACKDRIVER",
   "runtimeVersion": "V8",
   "urlFetchWhitelist": [
-    "https://predictorservice-77yud33tza-nn.a.run.app/predict"
+    "https://predictorservice-77yud33tza-nn.a.run.app/predict",
+    "https://predictorservice-77yud33tza-nn.a.run.app/test"
   ]
 }

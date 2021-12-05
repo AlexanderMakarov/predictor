@@ -7,7 +7,7 @@ from __init__ import timeit
 
 
 def predict_unit(history: typing.List[dict], date: str) -> float:
-    data = pd.DataFrame(history)
+    data = pd.DataFrame(history, columns=['y', 'ds'])
     data['ds'] = pd.DatetimeIndex(data['ds'])
     with suppress_stdout_stderr():  # PyStan generates a lot of logs from cpp - so no control on it.
         return run_prophet(data, date)
