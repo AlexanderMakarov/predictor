@@ -46,3 +46,16 @@ $ docker tag predictor_service:latest gcr.io/predictor-333317/predictor_service
 $ docker push gcr.io/predictor-333317/predictor_service
 $ gcloud run deploy predictorservice --image gcr.io/predictor-333317/predictor_service
 ```
+
+## TODO
+[ ] ? Don't jump on 'history' sheet when first time open.
+[ ] Deploy to marketplace.
+[ ] Documentation how to use.
+[ ] Show help page on install (together with ^ ?).
+[ ] Add "homepage card" (together with ^ ?).
+[ ] Ability to mix trend into prediction ("+1 each week" kinda).
+[ ] Auth with back-end.
+[ ] Mobile support.
+[ ] Support empty lines in prediction and history.
+[ ] Limit history.
+[ ] Ability to deploy images with calculated trends.

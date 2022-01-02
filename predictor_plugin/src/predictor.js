@@ -39,6 +39,7 @@ const Predictor = new function() {
 
     function normilizeHistories(historiesPerToken, tokenizer) {
         const initialSize = historiesPerToken.size;
+        // Create histogramm of changes only for debugging/logging.
         const binsLen = 10;
         const binsIn = new Array(binsLen + 1).fill(0); // last element - if more than 'binsLen' items.
         const binsOut = new Array(binsLen + 1).fill(0); // last element - if more than 'binsLen' items.
@@ -69,8 +70,11 @@ const Predictor = new function() {
         if (data.length == 1) {
             // If history is presented by single event then it assumed to be the last event.
             // To make model predict the same 'y' for the next time it is required to show a line for it,
-            // i.e. enhance history with the same 'y' to previous day.
-            data.push([data[0][0], notEmptyHistoryDays[notEmptyHistoryDays.length - 2]]);
+            // i.e. enhance history with the same 'y' to previous day. Note that previous day may not exist.
+            const previousDay = notEmptyHistoryDays.length > 1
+                    ? notEmptyHistoryDays[notEmptyHistoryDays.length - 2]
+                    : new Date(notEmptyHistoryDays[0] - 24 * 60 * 60 * 1000).getTime();
+            data.push([data[0][0], previousDay]);
             return data;
         }
         // Add '0' to all days between spare days. Assume that if day exists in history then it contains all tokens.

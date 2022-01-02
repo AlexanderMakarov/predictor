@@ -5,17 +5,21 @@ function onOpen(e) {
   addMenu();
 }
 
+function onInstall(e) {
+  // TODO Show Help page
+}
+
 function addMenu() {
   SpreadsheetApp.getUi()
       .createMenu('Predictor')
-      .addItem("Predict Today", "History.predictAndUpdateCurrentSheet")
+      .addItem("Predict Today", "predictToday")
       .addSeparator()
-      .addItem("Save history as Today", "History.saveHistory")
-      .addItem('Save history for Date...', 'showDialog')
+      .addItem("Save history as Today", "saveHistoryAsToday")
+      .addItem('Save history for Date...', 'saveHistoryForDate')
       .addToUi();
 }
 
-function showDialog() {
+function saveHistoryForDate() {
   var html = HtmlService.createHtmlOutputFromFile('static/dateDialog')
       .setWidth(500)
       .setHeight(400);
@@ -23,10 +27,12 @@ function showDialog() {
       .showModalDialog(html, 'Please provide date to save content at');
 }
 
-function saveHistory(date) {
+function saveHistoryAsToday() {
+  const date = History.getTodayDate();
   History.saveHistory(date);
+  SpreadsheetApp.getUi().alert('Current sheet data is saved for ' + date + '.');
 }
 
-function testPrediction() {
+function predictToday() {
   History.predictAndUpdateCurrentSheet();
 }

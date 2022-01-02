@@ -6,31 +6,40 @@ const History =  new function() {
 
     /**
      * Saves current sheet into history (existing).
-     * @param {Date} date Date to save current history on. 
+     * @param {Date} date Date to save current history on. If not specified uses today.
      */
     this.saveHistory = function(date) {
         const startTime = new Date();
-        const headers = getHeaders(SpreadsheetApp.getActiveSheet());
-        const historySheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(History.SHEET_NAME);
-        let values = getSheetAllValues(SpreadsheetApp.getActiveSheet(), !!headers);
+        const currentSpreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+        const currentSheet = currentSpreadsheet.getActiveSheet();
+        const headers = getHeaders(currentSheet);
+        const historySheet = currentSpreadsheet.getSheetByName(History.SHEET_NAME);
+        let values = getSheetAllValues(currentSheet, !!headers);
+        if (!!undefined) {
+            console.log("Can't save '" + values + "' into " + currentSheet + ", doing nothing.");
+            return false;
+        }
 
         // Take out data to save into history.
         if (checkEts(headers)) {
 
             // Compare with existing history and add only difference without date. 4th column is 'date'.
-            const lastDayInHistory = historySheet.getRange(historySheet.getLastRow(), 4, 1, 1)
+            // TODO support "ETS" mode for all variety of columns.
+            const lastDayInHistory = historySheet.getRange(historySheet.getLastRow(), 4, 1, 1);
             values = values.filter(item => isRowNotEmpty(item) && row[3] > lastDayInHistory);
         } else {
 
             // Add all for specified date or today. Add 'date' column values.
-            const dateToSet = !date ? new Date(new Date().toDateString()) : date; // Trim time.
-            values.forEach(row => row.push(dateToSet))
+            const dateToSet = !date ? this.getTodayDate() : date; // Trim time.
+            values.forEach(row => row.push(dateToSet));
         }
 
         // Append 'values' to history.
-        historySheet.getRange(historySheet.getLastRow() + 1, 1, values.length, values[0].length).setValues(values);
+        const numRows = values.length;
+        const numColumns = values[0].length;
+        historySheet.getRange(historySheet.getLastRow() + 1, 1, numRows, numColumns).setValues(values);
         console.log("saveHistory: appended " + numRows + " rows " + numColumns + " columns into history in "
-                + humanDiffWithCurrentDate(startTime) + ".")
+                + humanDiffWithCurrentDate(startTime) + ".");
     }
 
     /**
@@ -65,46 +74,60 @@ const History =  new function() {
      * Creates and fills history sheet. Does nothing if it exists already.
      */
     this.initialize = function() {
-        let historySheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(History.SHEET_NAME);
-        if (!historySheet) {
-            const startTime = new Date();
-            const currentSheet = SpreadsheetApp.getActiveSheet();
+        const startTime = new Date();
+        const currentSpreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+        let historySheet = currentSpreadsheet.getSheetByName(History.SHEET_NAME);
+        if (!getHeaders(historySheet)) { // Initialized == History.SHEET_NAME exists && contains headers.
+            const currentSheet = currentSpreadsheet.getActiveSheet();
+            const currentSheetName = currentSheet.getName();
+            if (!historySheet) { // Create history sheet if need.
+                historySheet = currentSpreadsheet.insertSheet(History.SHEET_NAME);
+                currentSpreadsheet.setActiveSheet(currentSheet); // Don't push user on new sheet.
+            }
             const headersCurrentSheet = getHeaders(currentSheet);
-            let filteredSheets = [currentSheet]; // By-default "ETS" mode.
-            const isEts = checkEts(headersCurrentSheet);
-            if (!isEts) {
-                filteredSheets = SpreadsheetApp.getActiveSpreadsheet().getSheets()
-                        .filter(sheet => isValidSheetForInitialLoad(sheet.getName(), currentSheet.getName()));
-            }
-            historySheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet();
-            historySheet.setName(History.SHEET_NAME);
-    
-            if (filteredSheets.length > 0) {
-                const headers = getHeaders(filteredSheets[0]);
-                if (!headers) {
-                    headers = History.DEFAULT_COLUMNS;
-                } else if (isEts) {
-                    headers.push(this.DATE_COL);
+            historySheet.appendRow(headersCurrentSheet || History.DEFAULT_COLUMNS);
+            const isAppendMode = checkEts(headersCurrentSheet); // Check mode by current sheet only.
+            // const sheetsToIterate = [currentSheet].concat(
+            //         currentSpreadsheet.getSheets().filter(sheet => sheet.getName() != currentSheet.getName()));
+            currentSpreadsheet.getSheets().forEach(sheet => {
+                let sheetName = sheet.getName();
+                if (sheetName == currentSheetName || sheetName == History.SHEET_NAME) {
+                    return;
                 }
-                historySheet.appendRow(headers);
-                filteredSheets.forEach(sheet => {
-                    let date = getParsableDate(sheet.getName());
-                    let values = getSheetAllValues(sheet, !!headers)
-                    if (!isEts) {
-                        values.forEach(row => row.push(date));
-                    }
-                    historySheet.getRange(historySheet.getLastRow() + 1, 1, values.length, values[0].length)
-                            .setValues(values);
-                    console.log("initialize: added " + values.length + " rows into history from sheet '"
-                            + sheet.getName() + "'.")
-                });
-            }
-            console.log("initialize: parsed " + filteredSheets.length + " sheets into history in "
-                    + humanDiffWithCurrentDate(startTime) + ".")
+                if (!isValidSheetForInitialLoad(sheetName)) {
+                    console.log("initialize: skipping '" + sheet.getName() + "' sheet as not supported.");
+                    return;
+                }
+                let headers = getHeaders(sheet);
+                if (isAppendMode && !checkEts(headers)) {
+                    console.log("initialize: skipping '" + sheet.getName()
+                            + "' because doesn't have 'Append' mode headers");
+                    return;
+                }
+                let values = getSheetAllValues(sheet, !!headers);
+                if (!values) {
+                    console.log("initialize: skipping '" + sheet.getName() + "' sheet because it's empty.");
+                    return;
+                }
+                if (!isAppendMode) {
+                    let date = getParsableDate(sheetName);
+                    values.forEach(row => row.push(date));
+                }
+                historySheet.getRange(historySheet.getLastRow() + 1, 1, values.length, values[0].length)
+                        .setValues(values);
+                console.log("initialize: added " + values.length + " rows into history from sheet '"
+                        + sheet.getName() + "'.");
+            });
         }
+        console.log("initialize: initialized history sheet '" + historySheet.getName() + "' in "
+                + humanDiffWithCurrentDate(startTime) + ".");
     }
 
-    function checkEts(headers) {
+    this.getTodayDate = function() {
+        return new Date(new Date().toDateString());
+    }
+
+    function checkEts(headers) { // TODO change to "checkAppendMode".
         return headers && headers.map(h => h.toLowerCase()).toString() == ETS_COLUMNS.toString();
     }
 
@@ -117,8 +140,8 @@ const History =  new function() {
         return (convertedDate !== "Invalid Date") && !isNaN(convertedDate);
     }
 
-    function isValidSheetForInitialLoad(sheetName, nameToIgnore) {
-        return sheetName != nameToIgnore && isDate(getParsableDate(sheetName));
+    function isValidSheetForInitialLoad(sheetName) {
+        return isDate(getParsableDate(sheetName));
     }
 
     /**

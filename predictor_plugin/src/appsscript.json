@@ -7,5 +7,18 @@
   "urlFetchWhitelist": [
     "https://predictorservice-77yud33tza-nn.a.run.app/predict",
     "https://predictorservice-77yud33tza-nn.a.run.app/test"
+  ],
+  "addOns": {
+    "common": {
+      "name": "Predictor",
+      "useLocaleFromApp": true,
+      "logoUrl": "https://drive.google.com/file/d/1F-lWKO9dFEBhs9AJYYPzi16VtiWkbj51/preview"
+    },
+    "sheets": {
+    }
+  },
+  "oauthScopes": [
+    "https://www.googleapis.com/auth/spreadsheets.currentonly",
+    "https://www.googleapis.com/auth/script.external_request"
   ]
 }
