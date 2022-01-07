@@ -2,5 +2,7 @@
 *.pyc
 data
 *.csv
+*.png
 **/.clasp.json
 predictor_plugin/.clasp.json
+**/node_modules/**

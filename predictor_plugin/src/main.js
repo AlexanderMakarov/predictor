@@ -29,8 +29,8 @@ function saveHistoryForDate() {
 
 function saveHistoryAsToday() {
   const date = History.getTodayDate();
-  History.saveHistory(date);
-  SpreadsheetApp.getUi().alert('Current sheet data is saved for ' + date + '.');
+  const numRows = History.saveHistory(date);
+  SpreadsheetApp.getUi().alert('Current sheet data (' + numRows + ' rows) is saved for ' + date + '.');
 }
 
 function predictToday() {

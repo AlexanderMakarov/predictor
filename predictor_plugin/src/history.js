@@ -1,12 +1,15 @@
 // Handles history. Saves in separate sheet, extracts data to predict.
-const History =  new function() {
+const History = new function() {
     this.SHEET_NAME = 'PredictorHistory'
     this.DATE_COL = 'date'
-    this.DEFAULT_COLUMNS = ["token", "y", "date"]
+    this.DEFAULT_COLUMNS = ["token", "y", this.DATE_COL]
+    this.EXTRACT_DATE_REGEX = new RegExp(".*[0-9]{1,2}([\-/ \.])[0-9]{1,2}[\-/ \.][0-9]{4}");
+    this.APPEND_MODE_PREDICTION_OFFSET_ROWS = 3;
 
     /**
      * Saves current sheet into history (existing).
      * @param {Date} date Date to save current history on. If not specified uses today.
+     * @returns Number of saved rows.
      */
     this.saveHistory = function(date) {
         const startTime = new Date();
@@ -15,8 +18,8 @@ const History =  new function() {
         const headers = getHeaders(currentSheet);
         const historySheet = currentSpreadsheet.getSheetByName(History.SHEET_NAME);
         let values = getSheetAllValues(currentSheet, !!headers);
-        if (!!undefined) {
-            console.log("Can't save '" + values + "' into " + currentSheet + ", doing nothing.");
+        if (!!values) {
+            console.log("No data ('" + values + "') in current '" + currentSheet + "' sheet, doing nothing.");
             return false;
         }
 
@@ -40,27 +43,30 @@ const History =  new function() {
         historySheet.getRange(historySheet.getLastRow() + 1, 1, numRows, numColumns).setValues(values);
         console.log("saveHistory: appended " + numRows + " rows " + numColumns + " columns into history in "
                 + humanDiffWithCurrentDate(startTime) + ".");
+        return numRows;
     }
 
     /**
      * Sends history to ML engine and updates current sheet with results.
      */
-    this.predictAndUpdateCurrentSheet = function() {
+    this.predictAndUpdateCurrentSheet = function() {// TODO ask day to predict.
         const startTime = new Date();
-        const historySheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(History.SHEET_NAME);
+        const dateToPredict = startTime;
+        const currentSpreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+        const historySheet = currentSpreadsheet.getSheetByName(History.SHEET_NAME);
         const headers = getHeaders(historySheet)
         const history = historySheet.getRange(2, 1, historySheet.getLastRow(), historySheet.getLastColumn()).getValues()
                 .filter(item => isRowNotEmpty(item));
-        const isEts = checkEts(headers);
-        const prediction = predictDay(history, headers, new Date());// TODO ask day to predict.
+        const isAppend = checkEts(headers);
+        const prediction = predictDay(history, headers, dateToPredict);
 
         // Update current sheet.
-        const currentSheet = SpreadsheetApp.getActiveSheet();
-        if (isEts) {
-            currentSheet.getRange(currentSheet.getLastRow() + 3, 1, prediction.length, prediction[0].length)
-                    .setValues(prediction);
+        const currentSheet = currentSpreadsheet.getActiveSheet();
+        if (isAppend) {
+            currentSheet.getRange(currentSheet.getLastRow() + History.APPEND_MODE_PREDICTION_OFFSET_ROWS, 1,
+                    prediction.length, prediction[0].length).setValues(prediction);
         } else {
-            if (getHeaders(currentSheet)) { // If current sheet have headers then keep them but from history.
+            if (getHeaders(currentSheet)) { // If current sheet has headers then keep them but from history.
                 prediction = headers + prediction;
             }
             currentSheet.clear(); // Predicted date size may be less than existing.
@@ -72,6 +78,7 @@ const History =  new function() {
 
     /**
      * Creates and fills history sheet. Does nothing if it exists already.
+     * @returns Error message about not satisfied condition or `null` if initialized successfully.
      */
     this.initialize = function() {
         const startTime = new Date();
@@ -82,35 +89,46 @@ const History =  new function() {
             const currentSheetName = currentSheet.getName();
             if (!historySheet) { // Create history sheet if need.
                 historySheet = currentSpreadsheet.insertSheet(History.SHEET_NAME);
-                currentSpreadsheet.setActiveSheet(currentSheet); // Don't push user on new sheet.
+                currentSpreadsheet.setActiveSheet(currentSheet); // Don't lead user on 'history' sheet.
             }
             const headersCurrentSheet = getHeaders(currentSheet);
-            historySheet.appendRow(headersCurrentSheet || History.DEFAULT_COLUMNS);
             const isAppendMode = checkEts(headersCurrentSheet); // Check mode by current sheet only.
-            // const sheetsToIterate = [currentSheet].concat(
-            //         currentSpreadsheet.getSheets().filter(sheet => sheet.getName() != currentSheet.getName()));
+            // Set headers for 'history'. In 'append' mode use existing headers as is. 
+            // Prefer existing headers but 'date' header is vital for 'history' and need to be added if doesn't exist.
+            let historyHeaders = headersCurrentSheet;
+            if (!isAppendMode) {
+                if (!headersCurrentSheet) {
+                    // Add default headers if current sheet doesn't have them at all.
+                    historyHeaders = History.DEFAULT_COLUMNS;
+                } else if (!findSpecificColumn(headersCurrentSheet, DATE_WORDS, true)) {
+                    // Add 'date' column if current sheet headers don't have such.
+                    historyHeaders.push(History.DATE_COL);
+                }
+            }
+            historySheet.appendRow(historyHeaders); // Append headers.
+            // Fill history from other sheets. Sheet should containt date somewhere.
             currentSpreadsheet.getSheets().forEach(sheet => {
                 let sheetName = sheet.getName();
                 if (sheetName == currentSheetName || sheetName == History.SHEET_NAME) {
-                    return;
+                    return; // TODO is it right for ETS? Skip history sheet and current sheet.
                 }
-                if (!isValidSheetForInitialLoad(sheetName)) {
+                let date = parseDateFromText(sheetName);
+                if (!isAppendMode && !date) {
                     console.log("initialize: skipping '" + sheet.getName() + "' sheet as not supported.");
-                    return;
+                    return; // Skip sheets without date in name.
                 }
                 let headers = getHeaders(sheet);
                 if (isAppendMode && !checkEts(headers)) {
                     console.log("initialize: skipping '" + sheet.getName()
                             + "' because doesn't have 'Append' mode headers");
-                    return;
+                    return; // If 'append' mode skip sheets without 'append' mode headers.
                 }
                 let values = getSheetAllValues(sheet, !!headers);
                 if (!values) {
                     console.log("initialize: skipping '" + sheet.getName() + "' sheet because it's empty.");
-                    return;
+                    return; // Skip empty sheets.
                 }
-                if (!isAppendMode) {
-                    let date = getParsableDate(sheetName);
+                if (!isAppendMode) { // TODO support custom 'date' column. If not 'append' mode then append date value.
                     values.forEach(row => row.push(date));
                 }
                 historySheet.getRange(historySheet.getLastRow() + 1, 1, values.length, values[0].length)
@@ -121,27 +139,18 @@ const History =  new function() {
         }
         console.log("initialize: initialized history sheet '" + historySheet.getName() + "' in "
                 + humanDiffWithCurrentDate(startTime) + ".");
+        return null;
     }
 
     this.getTodayDate = function() {
         return new Date(new Date().toDateString());
     }
 
-    function checkEts(headers) { // TODO change to "checkAppendMode".
-        return headers && headers.map(h => h.toLowerCase()).toString() == ETS_COLUMNS.toString();
-    }
-
-    function getParsableDate(date) {
-        return date.replaceAll(".", "/").replaceAll("\\", "/");
-    }
-
-    function isDate(date) {
-        const convertedDate = new Date(date);
-        return (convertedDate !== "Invalid Date") && !isNaN(convertedDate);
-    }
-
-    function isValidSheetForInitialLoad(sheetName) {
-        return isDate(getParsableDate(sheetName));
+    function parseDateFromText(text) {
+        const result = text.match(History.EXTRACT_DATE_REGEX);
+        if (result) {
+            return new Date(result[0]);
+        }
     }
 
     /**
@@ -188,7 +197,7 @@ const History =  new function() {
         return result;
     }
 
-    function isRowNotEmpty(row) {
+    function isRowNotEmpty(row) { // TODO support rows with empty cells (many columns case).
         return !!row && row.every(x => !!x);
     }
 

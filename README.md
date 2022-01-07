@@ -3,6 +3,8 @@
 ## Plugin
 
 https://github.com/google/clasp
+Also need to install [Jest](https://jestjs.io/docs/getting-started) for tests: `npm install --save-dev jest`.
+They are executed on git push.
 
 ## Service
 
@@ -48,14 +50,18 @@ $ gcloud run deploy predictorservice --image gcr.io/predictor-333317/predictor_s
 ```
 
 ## TODO
-[ ] ? Don't jump on 'history' sheet when first time open.
-[ ] Deploy to marketplace.
-[ ] Documentation how to use.
-[ ] Show help page on install (together with ^ ?).
-[ ] Add "homepage card" (together with ^ ?).
-[ ] Ability to mix trend into prediction ("+1 each week" kinda).
-[ ] Auth with back-end.
-[ ] Mobile support.
-[ ] Support empty lines in prediction and history.
-[ ] Limit history.
-[ ] Ability to deploy images with calculated trends.
+
+- [x] ? Don't jump on 'history' sheet when first time open.
+- [ ] Deploy to marketplace.
+- [ ] Add tests for logic.
+- [ ] Documentation how to use.
+- [ ] Show help page on install (together with ^ ?).
+- [ ] Add "homepage card" (together with ^ ?).
+- [ ] Debug tokens in UI (e.g. highlight in History).
+- [ ] Ability to mix trend into prediction ("+1 each week" kinda).
+- [ ] Auth with back-end.
+- [ ] Mobile support.
+- [ ] Support empty lines in prediction and history.
+- [ ] Limit history.
+- [ ] Ability to deploy images with calculated trends.
+- [ ] Predict for specific date.

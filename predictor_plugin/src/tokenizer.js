@@ -1,58 +1,56 @@
-// Converts spreadsheet data into tables which may be predicted. Works with History and CurrentSheet.
-
-function groupBy(mapsArray, key) { // https://stackoverflow.com/a/39886097/1535127 updated for Map
-    let reducer = (grouped, item) => {
-        let option = item[key];
-        let arr = grouped.get(option);
-        if (arr) {
-            arr.push(item);
-        } else {
-            grouped.set(option, [item]);
-        }
-        return grouped;
-    }
-    return mapsArray.reduce(reducer, new Map());
-}
-
-// function groupBy(arr, key) {
-//     const reducer = function(grouped, x) {
-//         let option = x[key];
-//         if (grouped[option]) {
-//             grouped[option].push(x);
-//         } else {
-//             grouped[option] = [x];
-//         }
-//         return grouped;
-//     }
-//     return arr.reduce(reducer, [])
-// }
-
-function pairsArrayToString(pairsArray) {
-    return '[' + pairsArray.map((key, value) => `m[${key}] = ${value}`).join(', ') + ']';
-}
-
-function shortenized(str, prefixLen, suffixLen) {
-    if (str == null || str == NaN) {
-        return "null"
-    }
-    if (str.length <= prefixLen + suffixLen + 3) {
-        return str;
-    }
-    return str.slice(0, prefixLen) + '...' + str.slice(-suffixLen);
-}
-
-function substractDays(date, days) {
-    var result = new Date(date);
-    result.setDate(result.getDate() - days);
-    return result;
-}
+// Set of tools to convert sheet data into app domain. I.e. translate "human <-> code".
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
-const DATE_WORDS = ['date', 'дата', 'time', 'день', 'когда']
-const Y_WORDS = ['quantity', 'количество', 'кол-во', 'effort', 'сколько', 'number', 'qnty', 'count', 'y']
-const ETS_COLUMNS = ['project-task', 'effort', 'description', 'date']
-const SEPARATOR = "###"
+const SEPARATOR = "###";
 
+// TODO support other languages.
+const DATE_WORDS = ['date', 'дата', 'time', 'день', 'когда'];
+const Y_WORDS = ['quantity', 'количество', 'кол-во', 'effort', 'сколько', 'number', 'qnty', 'count', 'y'];
+const ETS_COLUMNS = ['project-task', 'effort', 'description', 'date'];
+
+
+function findSpecificColumn(headers, words, isSearchShortest) {
+    // 1 step - find all columns possible.
+    const columnsWithWord = {}
+    headers.map((column, index) => {
+        let c = column.toLowerCase();
+        words.forEach((word) => { // Save all possible columns.
+            if (c == word) {
+                columnsWithWord[column] = index;
+            }
+        })
+    })
+    console.log("findSpecificColumn: '" + words + "' column in '" + headers + "' - got "
+            + pairsArrayToString(Object.entries(columnsWithWord)) + ".")
+    if (columnsWithWord.length == 1) {
+        return columnsWithWord.keys()[0];
+    } else if (columnsWithWord.length == 0) {
+        return null;
+    }
+    // 2 step - set weight by index and number of characters.
+    // 3 step - sort by weight and take first.
+    let column = null
+    let curWeight = 0
+    Object.entries(columnsWithWord).forEach(([c, index]) => {
+        let weight = isSearchShortest
+                ? (words.length - index) * 1000 + (999 - c.length)
+                : index // The more right the more chance that it is required column.
+        console.log("findSpecificColumn: set " + weight + " weight for '" + c + "'.")
+        if (weight > curWeight) {
+            column = c
+            curWeight = weight
+        }
+    })
+    return column;
+}
+
+function checkEts(headers) { // TODO convert to "checkAppendMode".
+    return headers && headers.map(h => h.toLowerCase()).toString() == ETS_COLUMNS.toString();
+}
+
+/**
+ * Stateful object which wraps data and headers in order to support prediction from it.
+ */
 class Tokenizer {
     // Same name strategy.
 
@@ -60,11 +58,12 @@ class Tokenizer {
      * Concstructor.
      * @param {Array} data 2D array of history values.
      * @param {Array} headers Array of headers in order of values provided.
+     * @param {Boolean} isAppend Flag that need handle 'append' mode.
      */
-    constructor(data, headers) {
+    constructor(data, headers, isAppend) {
         this.data = data;
         this.headers = headers;
-        this.isEts = headers.map(h => h.toLowerCase()).toString() == ETS_COLUMNS.toString()
+        this.isEts = checkEts(headers);
     }
 
     /**
@@ -72,50 +71,51 @@ class Tokenizer {
      * @returns Map{'token': [[number, timestamp], ], } for prediction call.
      */
     getTokenHistories() {
-        if (!this.data) {
+        if (!this.data) { // TODO fail in constuctor.
             return null;
         }
         console.log('getTokenHistories: got ' + this.data.length + ' rows of '
-                + (this.isEts ? 'ETS' : 'token-column') + ' data')
+                + (this.isAppend ? '\'append\' mode' : 'token-column') + ' data')
         // 1) Find data characteristics like specific column indexes.
         // TODO keep only indexes.
-        this.dateCol = this.findSpecificColumn(DATE_WORDS, true);
+        this.dateCol = findSpecificColumn(this.headers, DATE_WORDS, true);
         this.dateColIndex = this.headers.findIndex(x => x == this.dateCol);
         this.yCol = this.findSpecificColumn(Y_WORDS, false);
         this.yColIndex = this.headers.findIndex(x => x == this.yCol);
         let lastTimestampInData = new Date(this.data[this.data.length - 1][this.dateColIndex]);
         // 2) Tokenize data.
         // TODO separate infinetily. For now only "token-column" and "ETS" cases.
-        let groupedData = null // {token: [Map{...}]}
+        let groupedData = null // Map{token: [Map{...}]}
         if (this.isEts) {
-            groupedData = new Map()
+            groupedData = new Map();
             const groupedByTask = groupBy(this.data, 0); // {'task1': [['task1', '', '', ''], ...]}
             groupedByTask.forEach((taskHistory, task) => {
                 if (taskHistory && taskHistory.length > 0) {
-                    const groupedByDesc = groupBy(taskHistory, 2) // {'desc1': [['', '', 'desc1', ''], ...]}
+                    const groupedByDesc = groupBy(taskHistory, 2); // {'desc1': [['', '', 'desc1', ''], ...]}
                     groupedByDesc.forEach((descHistory, desc) => { // Save under composite key.
                         groupedData.set(task + SEPARATOR + desc, descHistory)
-                    })
+                    });
                 }
             })
         } else {
             // TODO expand to any number of 'token' columns. Now only first 'not date' and 'not y'.
             const tokenColIndex = this.headers.findIndex(h => 
                     h.toLowerCase() != this.dateCol && h.toLowerCase() != this.yCol);
-            groupedData = groupBy(this.data, tokenColIndex)
+            groupedData = groupBy(this.data, tokenColIndex);
         }
         console.log("getTokenHistories: found " + groupedData.size + " unique tokens, limiting them...")
         // 3) Limit history and convert rows to '[number, timestamp]' format (i.e. ['y', 'date']).
-        let result = new Map()
+        let result = new Map();
         groupedData.forEach((history, token) => {
             history = this.limitHistory(history, lastTimestampInData)
             if (history && history.length > 0) {
-                result.set(token, history.map(x => [Number.parseFloat(x[this.yColIndex]), new Date(x[this.dateColIndex]).getTime()]))
+                result.set(token, history.map(x =>
+                        [Number.parseFloat(x[this.yColIndex]), new Date(x[this.dateColIndex]).getTime()]));
             }
-        })
+        });
         console.log('getTokenHistories: ending up with ' + result.size + ' tokens='
-                + Array.from(result.keys()).map(x => shortenized(x, 15, 10)))
-        return result
+                + Array.from(result.keys()).map(x => shortenized(x, 15, 10)));
+        return result;
     }
 
     /**
@@ -125,7 +125,7 @@ class Tokenizer {
     getNotEmptyHistoryDays() {
         return Array.from(this.data.reduce(
                 (grouped, x) => grouped.add(new Date(x[this.dateColIndex]).getTime()), new Set())
-            ).sort()
+            ).sort();
     }
 
     /**
@@ -136,7 +136,13 @@ class Tokenizer {
         return Math.max.apply(Math, this.data.map(row => row[this.dateColIndex]));
     }
 
-    limitHistory(data, lastTimestampInData) {
+    /**
+     * Limits history for one token. Expects one row per day sorted in date ascending.
+     * @param {Array} data List of `Map` objects per row in history. 
+     * @param {Date} lastTimestampInData Last date for given token history.
+     * @returns Limited data/history or `null` if history is not valid.
+     */
+    limitHistory(data, lastTimestampInData) { // TODO restore "limit" actions.
         // 1. (checked few times) If only one row it should be in the last day.
         // - 2. Last occurence shouldn't be older than 30 periods.
         // - 3. Max history is 60 periods.
@@ -163,51 +169,15 @@ class Tokenizer {
     }
 
     expandTokenPrediction(token, y, dateToPredict) {
-        if (this.isEts) {
+        if (this.isEts) { // TODO support not only 'ETS' case.
             const parts = token.split(SEPARATOR);
-            return [parts[0], y, parts[1], dateToPredict]
+            return [parts[0], y, parts[1], dateToPredict];
         }
         return [token, y];
     }
 
     checkNotOneRowOnDifferentDay(data, day) {
-        const tmp = data[0][this.dateColIndex] // TODO remove
-        return (data.length == 1 && new Date(data[0][this.dateColIndex]).getTime() != day.getTime())
-    }
-
-    findSpecificColumn(words, isSearchShortest) {
-        // 1 step - find all columns possible.
-        const columnsWithWord = {}
-        this.headers.map((column, index) => {
-            let c = column.toLowerCase();
-            words.forEach((word) => { // Save all possible columns.
-                if (c == word) {
-                    columnsWithWord[column] = index;
-                }
-            })
-        })
-        console.log("findSpecificColumn: '" + words + "' column in '" + this.headers + "' - got "
-                + pairsArrayToString(Object.entries(columnsWithWord)) + ".")
-        if (columnsWithWord.length == 1) {
-            return columnsWithWord.keys()[0];
-        } else if (columnsWithWord.length == 0) {
-            return null;
-        }
-        // 2 step - set weight by index and number of characters.
-        // 3 step - sort by weight and take first.
-        let column = null
-        let curWeight = 0
-        Object.entries(columnsWithWord).forEach(([c, index]) => {
-            let weight = isSearchShortest
-                    ? (words.length - index) * 1000 + (999 - c.length)
-                    : index // The more right the more chance that it is required column.
-            console.log("findSpecificColumn: set " + weight + " weight for '" + c + "'.")
-            if (weight > curWeight) {
-                column = c
-                curWeight = weight
-            }
-        })
-        return column;
+        return (data.length == 1 && new Date(data[0][this.dateColIndex]).getTime() != day.getTime());
     }
 }
 
