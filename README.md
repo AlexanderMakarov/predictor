@@ -2,17 +2,21 @@
 
 ## Plugin
 
-https://github.com/google/clasp
-Also need to install [Jest](https://jestjs.io/docs/getting-started) for tests: `npm install --save-dev jest`.
-They are executed on git push.
+Use https://github.com/google/clasp from "predictor_plugin" folder.
+
+To keep ability use the same code on the GAS and locally TypeScript is not used (though would be great).
+
+Also need to install [Jest](https://jestjs.io/docs/getting-started) and other dependencies for tests: `npm install`.
+Tests are executed on git commit or with `npm run test`.
+Note that Apps Script doesn't support ECMAScript modules and fails on any `require` or `import` keyword.
+Because each from https://github.com/google/clasp/blob/master/docs/typescript.md#the-exports-declaration-workaround
+has some drawbacks (like inability to copy-paste as-is from GAS <-> local) then
+[transformJsToModule.js](predictor_plugin/transformers/transformJsToModule.js) was implemented and embedded into
+[jest.config.json](predictor_plugin/jest.config.json) - it works automatically.
 
 ## Service
 
-Run `setup.py`.
-
-### Setup
-
-Run `setup.py`.
+Install Python dependencies with `pip3 install -r requirements.txt`.
 
 ### Run
 

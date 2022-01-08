@@ -1,3 +1,22 @@
 {
-  "type": "module"
+  "type": "commonjs",
+  "name": "predictor_plugin",
+  "version": "0.0.1",
+  "description": "Predictor G Suite plugin. Javascript code for Google Spreadsheet App Script.",
+  "main": "src/main.js",
+  "directories": {
+    "main": "src",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "jest",
+    "install-precommit": "cp ../tools/pre-commit.sh ../.git/hooks/pre-commit"
+  },
+  "author": "Alexander Makarov",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/jest": "^27.4.0",
+    "jest": "^27.4.7",
+    "node-notifier": "^10.0.0"
+  }
 }

@@ -1,0 +1,13 @@
+{
+    "verbose": false,
+    "notify": true,
+    "transform": {
+        "src/.*\\.js$": "<rootDir>/../tools/transformJsToModule.js"
+    },
+    "errorOnDeprecated": true,
+    "testTimeout": 5000,
+    "//": "TODO enable for local runs",
+    "collectCoverage": false,
+    "collectCoverageFrom": ["src/**"],
+    "coverageDirectory": "test"
+}
