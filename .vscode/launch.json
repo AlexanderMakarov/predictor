@@ -13,9 +13,14 @@
                 "<node_internals>/**"
             ],
             "runtimeExecutable": "npm",
-            "runtimeArgs": ["run", "test"],
+            "runtimeArgs": [
+                "run",
+                "test"
+            ],
             "console": "integratedTerminal",
-            "internalConsoleOptions": "neverOpen"
+            "internalConsoleOptions": "neverOpen",
+            "disableOptimisticBPs": true,
+            "port": 9229
         },
         {
             "name": "Python: Current File",

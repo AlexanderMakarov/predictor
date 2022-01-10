@@ -69,3 +69,13 @@ $ gcloud run deploy predictorservice --image gcr.io/predictor-333317/predictor_s
 - [ ] Limit history.
 - [ ] Ability to deploy images with calculated trends.
 - [ ] Predict for specific date.
+
+## Notes for testing
+
+- If try to use TypeScript for GAS plugin tests then it clashes with "src" content written in JavaScript.
+- To inject GAS object from test to "src" use `global` like `global.SpreadsheetApp = gasmask.SpreadsheetApp;`
+- `jest.createMockFromModule('gasmask')` doesn't allow mock hierarchy so doesn't work - use `require`.
+- Rules for mocks with 'gasmask' under Jest:
+  - 'gasmask' doesn't provide good enough realization of all nested functions but still helps a lot with structure.
+    Need to implement function should return some not 'undefined' value (in most cases).
+  - Mock only functions which want to track in `expect` - remained may be implemented directly.

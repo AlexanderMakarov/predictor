@@ -1,0 +1,4 @@
+{
+    "jest.rootPath": "predictor_plugin",
+    "jest.enableCodeLens": true
+}
