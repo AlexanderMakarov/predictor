@@ -62,6 +62,7 @@ $ gcloud run deploy predictorservice --image gcr.io/predictor-333317/predictor_s
 - [ ] Show help page on install (together with ^ ?).
 - [ ] Add "homepage card" (together with ^ ?).
 - [ ] Debug tokens in UI (e.g. highlight in History).
+- [ ] Support header not on the first row.
 - [ ] Ability to mix trend into prediction ("+1 each week" kinda).
 - [ ] Auth with back-end.
 - [ ] Mobile support.

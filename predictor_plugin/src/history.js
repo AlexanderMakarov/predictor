@@ -3,7 +3,7 @@ const History = new function() {
     this.SHEET_NAME = 'PredictorHistory'
     this.DATE_COL = 'date'
     this.DEFAULT_COLUMNS = ["token", "y", this.DATE_COL]
-    this.EXTRACT_DATE_REGEX = new RegExp(".*[0-9]{1,2}([\-/ \.])[0-9]{1,2}[\-/ \.][0-9]{4}");
+    this.EXTRACT_DATE_REGEX = new RegExp(".+?([0-9]{1,4}([\-/ \.])[0-9]{1,2}[\-/ \.][0-9]{1,4}).*");
     this.APPEND_MODE_PREDICTION_OFFSET_ROWS = 3;
 
     /**
@@ -84,18 +84,22 @@ const History = new function() {
         const startTime = new Date();
         const currentSpreadsheet = SpreadsheetApp.getActiveSpreadsheet();
         let historySheet = currentSpreadsheet.getSheetByName(History.SHEET_NAME);
-        if (!getHeaders(historySheet)) { // Initialized == History.SHEET_NAME exists && contains headers.
+        let historyHeaders = getHeaders(historySheet);
+        // Initialized == History.SHEET_NAME exists && contains headers with date.
+        if (!historyHeaders || !findSpecificColumn(historyHeaders, DATE_WORDS, true)) {
             const currentSheet = currentSpreadsheet.getActiveSheet();
             const currentSheetName = currentSheet.getName();
             if (!historySheet) { // Create history sheet if need.
                 historySheet = currentSpreadsheet.insertSheet(History.SHEET_NAME);
                 currentSpreadsheet.setActiveSheet(currentSheet); // Don't lead user on 'history' sheet.
+            } else {
+                historySheet.clear(); // Clear all content if sheet exists but with wrong data.
             }
             const headersCurrentSheet = getHeaders(currentSheet);
             const isAppendMode = checkEts(headersCurrentSheet); // Check mode by current sheet only.
             // Set headers for 'history'. In 'append' mode use existing headers as is. 
             // Prefer existing headers but 'date' header is vital for 'history' and need to be added if doesn't exist.
-            let historyHeaders = headersCurrentSheet;
+            historyHeaders = headersCurrentSheet;
             if (!isAppendMode) {
                 if (!headersCurrentSheet) {
                     // Add default headers if current sheet doesn't have them at all.
@@ -154,13 +158,13 @@ const History = new function() {
     }
 
     /**
-     * Tries to extract headers from provided sheet.
+     * Tries to extract headers from provided sheet. Differs headers from regular row by `isNan` call on each cell.
      * @param {Sheet} sheet Sheet to search header in.
      * @returns Array of column names in order or `null` if header is not found.
      */
     function getHeaders(sheet) {
         if (sheet) {
-            const firstRow = sheet.getRange(1, 1, 1, sheet.getDataRange().getNumColumns()).getValues()[0];
+            const firstRow = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
             if (firstRow && firstRow.every(x => isNaN(x))) {
                 return firstRow;
             }
@@ -169,8 +173,8 @@ const History = new function() {
     }
 
     function getSheetAllValues(sheet, isSkipHeader) {
-        const numRows = sheet.getDataRange().getNumRows();
-        const numColumns = sheet.getDataRange().getNumColumns();
+        const numRows = sheet.getLastRow();
+        const numColumns = sheet.getLastColumn();
         return sheet.getRange(isSkipHeader ? 2 : 1, 1, numRows, numColumns).getValues()
                 .filter(item => isRowNotEmpty(item));
     }
