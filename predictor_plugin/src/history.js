@@ -153,7 +153,7 @@ const History = new function() {
     function parseDateFromText(text) {
         const result = text.match(History.EXTRACT_DATE_REGEX);
         if (result) {
-            return new Date(result[0]);
+            return new Date(result[1]);
         }
     }
 

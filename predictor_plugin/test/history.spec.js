@@ -292,20 +292,24 @@ describe('initialize', () => {
         expect(historySheet.getRange).toHaveBeenNthCalledWith(1, 2, 1, 2, 3); // To add data from sheet2021Jul1.
         expect(historySheet.getRange).toHaveBeenNthCalledWith(2, 4, 1, 2, 3); // To add data from sheet2021Jul7.
         expect(historySheet.getRange).toHaveBeenCalledTimes(2);
-/* TODO        expect(rangeHistory.setValues).toHaveBeenNthCalledWith(1, [
+        expect(rangeHistory.setValues).toHaveBeenNthCalledWith(1, [
             ['foo', 3, new Date('2021-07-01')],
             ['baz', 1, new Date('2021-07-01')],
         ]);
         expect(rangeHistory.setValues).toHaveBeenNthCalledWith(2, [
             ['foo', 2, new Date('2021-07-07')],
             ['bar', 2, new Date('2021-07-07')],
-        ]);*/
+        ]);
         expect(rangeHistory.setValues).toHaveBeenCalledTimes(2);
         expect(rangeData1.setValues).not.toHaveBeenCalled();
         expect(rangeData2FirstRow.setValues).not.toHaveBeenCalled();
         expect(rangeData2.setValues).not.toHaveBeenCalled();
     });
 });
+
+// describe('saveHistory', () => {
+
+// });
 
 function assertHaveBeenCalledOnceWith(mock, ...args) {
     expect(mock).toHaveBeenCalledWith(...args);
@@ -323,5 +327,3 @@ function assertActiveSsCreateHistory(activeSpreadsheet) {
     assertHaveBeenCalledOnceWith(activeSpreadsheet.setActiveSheet, activeSpreadsheet.getActiveSheet());
 }
 
-
-//activeSpreadsheet.getSheetByName = jest.fn((name) => name == History.SHEET_NAME ? historySheet : null);
