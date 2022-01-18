@@ -232,8 +232,8 @@ describe('initialize', () => {
             'setValues': jest.fn(),
         };
         const rangeData2 = {
-            'getValues': jest.fn(() => [['foo', 2], ['bar', 2]]),
-            'getNumRows': jest.fn(() => 2),
+            'getValues': jest.fn(() => [[], ['foo', 2], [], ['bar', 2]]),
+            'getNumRows': jest.fn(() => 4),
             'getNumColumns': () => 2,
             'setValues': jest.fn(),
         }
@@ -262,7 +262,7 @@ describe('initialize', () => {
         const sheet2021Jul7 = mock.Sheet('Products 2021-07-07', rangeData2);
         sheet2021Jul7.getRange = jest.fn((rowStart, colStart, rows, cols) => {
             if (rowStart == 1 && rows == 1) return rangeData2FirstRow;
-            else if (rowStart == 2, rows == 2) return rangeData2;
+            else if (rowStart == 2, rows == 4) return rangeData2;
             else return null;
         })
         const historySheet = mock.Sheet(History.SHEET_NAME, rangeHistory);

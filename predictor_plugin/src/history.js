@@ -202,7 +202,7 @@ const History = new function() {
     }
 
     function isRowNotEmpty(row) { // TODO support rows with empty cells (many columns case).
-        return !!row && row.every(x => !!x);
+        return !!row && row.length > 0 && row.every(x => !!x);
     }
 
     function humanDiffWithCurrentDate(startTime) {
