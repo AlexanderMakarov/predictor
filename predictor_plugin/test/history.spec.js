@@ -97,7 +97,6 @@ describe('initialize', () => {
         expect(rangeEmpty.setValues).not.toHaveBeenCalled();
         expect(rangeFoo1WithHeadersNoDate.setValues).not.toHaveBeenCalled();
     });
-
     test("empty history exists", () => {
 
         // Arrange.
@@ -119,7 +118,6 @@ describe('initialize', () => {
         expect(historySheet.clear).toHaveBeenCalledTimes(1);
         expect(rangeEmpty.setValues).not.toHaveBeenCalled();
     });
-
     test("history with only headers", () => {
 
         // Arrange.
@@ -143,7 +141,6 @@ describe('initialize', () => {
         expect(rangeEmpty.setValues).not.toHaveBeenCalled();
         expect(rangeHistoryHeaders.setValues).not.toHaveBeenCalled();
     });
-
     test("history with data", () => {
 
         // Arrange.
@@ -167,7 +164,6 @@ describe('initialize', () => {
         expect(rangeEmpty.setValues).not.toHaveBeenCalled();
         expect(rangeHistoryHeaders.setValues).not.toHaveBeenCalled();
     });
-
     test("history with wrong headers", () => {
 
         // Arrange.
@@ -190,7 +186,6 @@ describe('initialize', () => {
         expect(rangeFoo1.setValues).not.toHaveBeenCalled();
         expect(rangeEmpty.setValues).not.toHaveBeenCalled();
     });
-
     test("history with headers without date", () => {
 
         // Arrange.
@@ -213,7 +208,6 @@ describe('initialize', () => {
         expect(activeSpreadsheet.getSheets).toHaveBeenCalledTimes(1);
         expect(rangeFoo1WithHeadersNoDate.setValues).not.toHaveBeenCalled();
     });
-
     test("no history and extra data sheets", () => {
 
         // Arrange.
@@ -307,9 +301,103 @@ describe('initialize', () => {
     });
 });
 
-// describe('saveHistory', () => {
+describe('saveHistory', () => {
+    test('empty sheet', () => {
 
-// });
+        // Arrange.
+        rangeEmpty.getValues = jest.fn(() => []); // TODO why it doesn't work from definition?
+        const historySheet = mock.Sheet(History.SHEET_NAME, rangeHistoryHeaders);
+        const activeSheet = mock.Sheet('Sheet 1', rangeEmpty);
+        activeSheet.getRange = jest.fn((rowStart, colStart, rows, cols) => rangeEmpty)
+        const activeSpreadsheet = mock.Spreadsheet(activeSheet,
+                (name) => name == History.SHEET_NAME ? historySheet : null);
+        mock.SpreadsheetApp(activeSpreadsheet);
+
+        // Act
+        History.saveHistory();
+
+        // Assert that nothing happened with history or active sheet.
+        assertHaveBeenCalledOnceWith(activeSheet.getRange, 1, 1, 0, 0)
+        expect(historySheet.getRange).not.toHaveBeenCalled();
+        expect(historySheet.appendRow).not.toHaveBeenCalled();
+        expect(rangeEmpty.setValues).not.toHaveBeenCalled();
+    });
+    test('only headers', () => {
+
+        // Arrange.
+        const rangeActive = {
+            'getNumColumns': () => 2,
+            'getValues': jest.fn(() => [['Name', 'Count']]),
+            'setValues': jest.fn(),
+        };
+        const historySheet = mock.Sheet(History.SHEET_NAME, rangeHistoryHeaders);
+        const activeSheet = mock.Sheet('Sheet 1', rangeActive);
+        activeSheet.getRange = jest.fn((rowStart, colStart, rows, cols) => rangeActive)
+        const activeSpreadsheet = mock.Spreadsheet(activeSheet,
+                (name) => name == History.SHEET_NAME ? historySheet : null);
+        mock.SpreadsheetApp(activeSpreadsheet);
+
+        // Act
+        History.saveHistory();
+
+        // Assert that nothing happened with history or active sheet.
+        assertHaveBeenCalledOnceWith(activeSheet.getRange, 1, 1, 1, 2)
+        expect(historySheet.getRange).not.toHaveBeenCalled();
+        expect(historySheet.appendRow).not.toHaveBeenCalled();
+        expect(rangeEmpty.setValues).not.toHaveBeenCalled();
+    });
+    test('dense data, no date', () => {
+
+        // Arrange.
+        const rangeActive = {
+            'getNumColumns': () => 2,
+            'getValues': jest.fn(() => [['foo', 1], ['bar', 3]]),
+            'setValues': jest.fn(),
+        };
+        const historySheet = mock.Sheet(History.SHEET_NAME, rangeHistoryHeaders);
+        const activeSheet = mock.Sheet('Sheet 1', rangeActive);
+        activeSheet.getRange = jest.fn((rowStart, colStart, rows, cols) => rangeActive)
+        const activeSpreadsheet = mock.Spreadsheet(activeSheet,
+                (name) => name == History.SHEET_NAME ? historySheet : null);
+        mock.SpreadsheetApp(activeSpreadsheet);
+        const todayDate = History.getTodayDate(); // If test start right before new day start it may fail.
+
+        // Act
+        History.saveHistory();
+
+        // Assert that nothing happened with history or active sheet.
+        assertHaveBeenCalledOnceWith(activeSheet.getRange, 1, 1, 2, 2);
+        assertHaveBeenCalledOnceWith(historySheet.getRange, 2, 1, 2, 3);
+        assertHaveBeenCalledOnceWith(rangeHistoryHeaders.setValues, [['foo', 1, todayDate], ['bar', 3, todayDate]]);
+        expect(rangeEmpty.setValues).not.toHaveBeenCalled();
+    });
+    test('sparse data, headers, specific date', () => {
+
+        // Arrange.
+        const rangeActive = {
+            'getNumColumns': () => 2,
+            'getValues': jest.fn(() => [['Имя', 'Количество'], ['стол', 2], [], ['стул', 3]]),
+            'setValues': jest.fn(),
+        };
+        rangeHistoryHeaders.setValues = jest.fn();
+        const historySheet = mock.Sheet(History.SHEET_NAME, rangeHistoryHeaders);
+        const activeSheet = mock.Sheet('Sheet 1', rangeActive);
+        activeSheet.getRange = jest.fn((rowStart, colStart, rows, cols) => rangeActive)
+        const activeSpreadsheet = mock.Spreadsheet(activeSheet,
+                (name) => name == History.SHEET_NAME ? historySheet : null);
+        mock.SpreadsheetApp(activeSpreadsheet);
+        const date = new Date('2022-01-22');
+
+        // Act
+        History.saveHistory(date);
+
+        // Assert that nothing happened with history or active sheet.
+        assertHaveBeenCalledOnceWith(activeSheet.getRange, 1, 1, 4, 2);
+        assertHaveBeenCalledOnceWith(historySheet.getRange, 2, 1, 2, 3);
+        assertHaveBeenCalledOnceWith(rangeHistoryHeaders.setValues, [['стол', 2, date], ['стул', 3, date]]);
+        expect(rangeEmpty.setValues).not.toHaveBeenCalled();
+    });
+});
 
 function assertHaveBeenCalledOnceWith(mock, ...args) {
     expect(mock).toHaveBeenCalledWith(...args);

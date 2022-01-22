@@ -15,13 +15,24 @@ const History = new function() {
         const startTime = new Date();
         const currentSpreadsheet = SpreadsheetApp.getActiveSpreadsheet();
         const currentSheet = currentSpreadsheet.getActiveSheet();
-        const headers = getHeaders(currentSheet);
-        const historySheet = currentSpreadsheet.getSheetByName(History.SHEET_NAME);
-        let values = getSheetAllValues(currentSheet, !!headers);
-        if (!!values) {
-            console.log("No data ('" + values + "') in current '" + currentSheet + "' sheet, doing nothing.");
-            return false;
+
+        // Get all values, extract headers, check that current sheet has something to save.
+        let values = getSheetAllValues(currentSheet, false);
+        if (!values || values.length <= 0) {
+            console.log("saveHistory: No data ('" + values + "') in current '" + currentSheet
+                    + "' sheet, doing nothing.");
+            return 0;
         }
+        const headers = getHeadersFromArray(values[0]); // TODO support header in not first row.
+        if (headers) {
+            if (values.length == 1) {
+                console.log("saveHistory: No data except headers ('" + values + "') in current '" + currentSheet
+                        + "' sheet, doing nothing.");
+                return 0;
+            }
+            values = values.slice(1);
+        }
+        const historySheet = currentSpreadsheet.getSheetByName(History.SHEET_NAME);
 
         // Take out data to save into history.
         if (checkEts(headers)) {
@@ -157,6 +168,12 @@ const History = new function() {
         }
     }
 
+    function getHeadersFromArray(row) {
+        if (row.length > 0 && row.every(x => isNaN(x))) {
+            return row;
+        }
+    }
+
     /**
      * Tries to extract headers from provided sheet. Differs headers from regular row by `isNan` call on each cell.
      * @param {Sheet} sheet Sheet to search header in.
@@ -164,9 +181,9 @@ const History = new function() {
      */
     function getHeaders(sheet) {
         if (sheet) {
-            const firstRow = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-            if (firstRow && firstRow.every(x => isNaN(x))) {
-                return firstRow;
+            const firstRowRangeValues = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues();
+            if (firstRowRangeValues.length > 0) {
+                return getHeadersFromArray(firstRowRangeValues[0]);
             }
         }
         return null;
